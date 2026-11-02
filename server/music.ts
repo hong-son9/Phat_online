@@ -24,3 +24,20 @@ export function listMusic(): string[] {
   cached = { at: Date.now(), list: [...BUILTIN_TRACKS, ...files] };
   return cached.list;
 }
+
+// Attribution for CC BY tracks, from music/credits.json ({ "file.mp3": "Title – Author · License" })
+let credits: { at: number; map: Record<string, string> } = { at: 0, map: {} };
+
+export function musicCredit(track: string): string {
+  if (!track.startsWith('file:')) return '';
+  if (Date.now() - credits.at > 10000) {
+    let map: Record<string, string> = {};
+    try {
+      map = JSON.parse(fs.readFileSync(path.join(MUSIC_DIR, 'credits.json'), 'utf8'));
+    } catch {
+      // no credits file, or it is being edited
+    }
+    credits = { at: Date.now(), map };
+  }
+  return String(credits.map[track.slice(5)] ?? '').slice(0, 160);
+}

@@ -3,6 +3,14 @@ dist
 data
 music/*
 !music/README.txt
+!music/credits.json
+# bundled CC BY tracks (Kevin MacLeod); anything else dropped in music/ stays local
+!music/Meditation Impromptu 01.mp3
+!music/Meditation Impromptu 02.mp3
+!music/Meditation Impromptu 03.mp3
+!music/Eastern Thought.mp3
+!music/Dreamer.mp3
+!music/Healing.mp3
 *.log
 .vscode
 *.lnk

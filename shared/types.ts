@@ -102,6 +102,7 @@ export type Snapshot = {
   voice: { current: VoiceItem | null; queue: VoiceItem[]; paused: boolean };
   stages: { count: number; audio: boolean };
   music: string[];
+  musicCredit: string; // shown on stage while a CC BY track plays
   serverTime: number;
 };
 

@@ -6,7 +6,7 @@ import { broadcast, hasAudioStage, stageCount } from './hub';
 import * as voice from './voice';
 import { TikTokLink } from './tiktok';
 import { applySettingsPatch, loadSession, loadSettings, saveSession, saveSettings } from './store';
-import { listMusic } from './music';
+import { listMusic, musicCredit } from './music';
 
 // The brain of the app: every TikTok event (or simulated one) comes through here and becomes
 // state (hall, leaderboard, likes, incense line), stage effects and voice lines.
@@ -137,6 +137,7 @@ export class Engine {
       voice: voice.voiceState(),
       stages: { count: stageCount(), audio: hasAudioStage() },
       music: listMusic(),
+      musicCredit: this.settings.audio.music ? musicCredit(this.settings.audio.musicTrack) : '',
       serverTime: Date.now(),
     };
   }

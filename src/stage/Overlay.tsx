@@ -52,7 +52,7 @@ function Hints({ snap }: { snap: Snapshot }) {
   }, [hints.length]);
   const [icon, text] = hints[i];
   return (
-    <div className="absolute left-0 right-0 top-[178px] flex justify-center">
+    <div className="absolute left-0 right-0 top-[186px] flex justify-center">
       <div key={i} className="pop-in glass rounded-full pl-2 pr-4 py-1.5 flex items-center gap-2 text-[12.5px] text-[#fff3dc]">
         <span className="w-6 h-6 rounded-full bg-gold-300/20 flex items-center justify-center text-[13px]">{icon}</span>
         <span>{text}</span>
@@ -286,6 +286,9 @@ export function Overlay({ snap, now, hearts, blooms, ticker }: { snap: Snapshot;
       <div className="absolute inset-x-0 top-0 h-[300px] bg-gradient-to-b from-black/55 via-black/20 to-transparent" />
       <Title snap={snap} />
       {g.disclaimer && <Disclaimer />}
+      {snap.musicCredit && (
+        <div className="absolute left-0 right-0 top-[171px] text-center text-[8.5px] text-[#f1dfc2]/65 truncate px-8">♪ {snap.musicCredit}</div>
+      )}
       {g.hints && !spot && <Hints snap={snap} />}
       {/* side panels step aside while the camera is on a gift giver */}
       <div className="absolute inset-0" style={{ opacity: spot ? 0 : 1, transform: spot ? 'scale(0.97)' : 'none', transition: 'all .6s ease' }}>
