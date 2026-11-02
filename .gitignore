@@ -5,3 +5,4 @@ music/*
 !music/README.txt
 *.log
 .vscode
+*.lnk
