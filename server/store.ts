@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import type { Settings } from '../shared/types';
+import type { Guest, Settings } from '../shared/types';
 
-export const DATA_DIR = path.join(process.cwd(), 'data');
+// DATA_DIR lets a second copy (e.g. a test run) keep its own settings and session
+export const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(process.cwd(), 'data');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const SESSION_FILE = path.join(DATA_DIR, 'session.json');
 
@@ -31,8 +32,10 @@ export const DEFAULT_SETTINGS: Settings = {
   shareReminderMinutes: 6,
   audio: { music: true, musicTrack: 'builtin:calm', musicVolume: 0.35, sfx: true, sfxVolume: 0.7 },
   graphics: { quality: 'high', captions: true, disclaimer: true, hints: true, theme: 'dusk' },
+  effects: { rain: true, bloom: true, lanterns: true, spotlight: true },
   bannedWords: [],
   blockedUsers: [],
+  guests: [],
   setupDone: false,
 };
 
@@ -82,8 +85,33 @@ export function applySettingsPatch(current: Settings, patch: unknown): Settings 
   if (!['low', 'medium', 'high'].includes(next.graphics.quality)) next.graphics.quality = 'high';
   if (!['dusk', 'night'].includes(next.graphics.theme)) next.graphics.theme = 'dusk';
   next.bannedWords = next.bannedWords.map((w) => String(w).trim()).filter(Boolean).slice(0, 300);
+  next.guests = cleanGuests(next.guests);
   next.blockedUsers = [...new Set(next.blockedUsers.map((w) => String(w).trim().toLowerCase()).filter(Boolean))].slice(0, 500);
   return next;
+}
+
+// Guests come from a form: keep only well-formed fields, one entry per username
+function cleanGuests(list: unknown[]): Guest[] {
+  const seen = new Set<string>();
+  const out: Guest[] = [];
+  for (const raw of list) {
+    const g = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    const id = String(g.id ?? '').replace(/^@/, '').trim().toLowerCase();
+    if (!/^[\w.]{1,40}$/.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    const robe = String(g.robe ?? '');
+    const image = String(g.image ?? '');
+    out.push({
+      id,
+      title: String(g.title ?? '').replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 20),
+      robe: /^#[0-9a-f]{6}$/i.test(robe) ? robe : '#e0a526',
+      image: /^[\w.-]{1,80}$/.test(image) ? image : '',
+      greeting: String(g.greeting ?? '').replace(/[\x00-\x1f\x7f]/g, ' ').trim().slice(0, 300),
+      frontRow: g.frontRow !== false,
+      skipQueue: g.skipQueue !== false,
+    });
+  }
+  return out.slice(0, 50);
 }
 
 const clamp = (v: number, lo: number, hi: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo);

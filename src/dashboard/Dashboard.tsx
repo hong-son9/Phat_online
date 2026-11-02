@@ -48,7 +48,11 @@ function DashboardInner() {
       const run: Record<string, () => void> = {
         b: () => api('/api/fx', { fx: 'bell' }),
         m: () => api('/api/fx', { fx: 'gong' }),
-        r: () => api('/api/fx', { fx: 'rain' }).then(() => toast('Mưa hoa sen', 'info')),
+        r: () => {
+          const raining = !!snap && snap.likes.rainUntil > now();
+          api('/api/fx', { fx: raining ? 'stopRain' : 'rain' }).then(() => toast(raining ? 'Đã dừng mưa hoa' : 'Mưa hoa sen', 'info'));
+        },
+        x: () => api('/api/fx', { fx: 'stopAll' }).then(() => toast('Đã tắt hết hiệu ứng đang chạy', 'info')),
         s: () => api('/api/voice/skip'),
         p: () => api(snap?.voice.paused ? '/api/voice/resume' : '/api/voice/pause').then(() => toast(snap?.voice.paused ? 'Tiếp tục đọc' : 'Đã tạm dừng giọng đọc', 'info')),
         t: () => setSimOpen((o) => !o),
@@ -62,7 +66,7 @@ function DashboardInner() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [snap?.voice.paused]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [snap?.voice.paused, snap?.likes.rainUntil]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!snap) {
     return (
@@ -134,7 +138,7 @@ function DashboardInner() {
 
         <div className="flex flex-col gap-4 lg:col-span-2 xl:col-span-1">
           <VoiceCard snap={snap} now={t} />
-          <QuickActions />
+          <QuickActions snap={snap} now={t} />
           <TopCard snap={snap} />
           <section className="card p-4 text-sm flex items-center justify-between">
             <span className="text-[#b8a693]">
@@ -146,7 +150,7 @@ function DashboardInner() {
       </main>
 
       <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} snap={snap} />
-      <SimDrawer open={simOpen} onClose={() => setSimOpen(false)} />
+      <SimDrawer open={simOpen} onClose={() => setSimOpen(false)} guests={snap.settings.guests} />
       <SetupWizard open={setupOpen} onClose={() => setSetupOpen(false)} snap={snap} />
       <Modal open={keysOpen} onClose={() => setKeysOpen(false)} width={420}>
         <div className="p-6">
@@ -156,7 +160,8 @@ function DashboardInner() {
           {[
             ['B', 'Đánh chuông'],
             ['M', 'Gõ mõ'],
-            ['R', 'Mưa hoa sen ngay'],
+            ['R', 'Bắt đầu / dừng mưa hoa sen'],
+            ['X', 'Tắt hết hiệu ứng đang chạy'],
             ['S', 'Bỏ qua câu đang đọc'],
             ['P', 'Tạm dừng / tiếp tục giọng đọc'],
             ['T', 'Mở bảng Thử nghiệm'],

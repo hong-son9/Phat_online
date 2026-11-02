@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  Ban, Bell, CloudRain, Copy, Crown, ExternalLink, Eye, Flame, Flower2, Gift, Hand, HandHeart, Heart, Lamp, LoaderCircle,
+  Ban, Bell, CircleStop, CloudOff, CloudRain, Copy, Crown, ExternalLink, Eye, Flame, Flower2, Gift, Hand, HandHeart, Heart, Lamp, LoaderCircle,
   MessageCircle, Mic, Pause, Play, Plug, Search, Send, Share2, SkipForward, Sparkles, Trash2, UserPlus, Users, Volume2, Wifi, WifiOff, X,
 } from 'lucide-react';
 import type { FeedItem, Snapshot, VoiceItem, VoiceKind } from '../../shared/types';
@@ -127,14 +127,17 @@ export function PreviewCard({ snap }: { snap: Snapshot }) {
 
 // ---------- quick effects ----------
 
-export function QuickActions() {
+export function QuickActions({ snap, now }: { snap: Snapshot; now: number }) {
   const toast = useToast();
   const fx = (name: string, label: string) => api('/api/fx', { fx: name }).then((r) => toast(r.ok ? label : r.error, r.ok ? 'info' : 'err'));
+  const raining = snap.likes.rainUntil > now;
   const items: Array<[ReactNode, string, () => void, string?]> = [
     [<Bell size={16} />, 'Chuông', () => fx('bell', 'Đã đánh chuông'), 'B'],
     [<Hand size={16} />, 'Mõ', () => fx('gong', 'Đã gõ mõ'), 'M'],
     [<Flower2 size={16} />, 'Sen nở', () => fx('bloom', 'Hoa sen nở')],
-    [<CloudRain size={16} />, 'Mưa hoa', () => fx('rain', 'Bắt đầu mưa hoa sen'), 'R'],
+    raining
+      ? [<CloudOff size={16} />, 'Dừng mưa', () => fx('stopRain', 'Đã dừng mưa hoa'), 'R']
+      : [<CloudRain size={16} />, 'Mưa hoa', () => fx('rain', 'Bắt đầu mưa hoa sen'), 'R'],
     [<Lamp size={16} />, 'Đèn trời', () => fx('lanterns', 'Thả đèn trời')],
     [<Sparkles size={16} />, 'Lời chúc', () => api('/api/voice/blessing').then(() => toast('Đã thêm lời chúc chung', 'info'))],
     [<Share2 size={16} />, 'Nhắc share', () => api('/api/voice/reminder').then(() => toast('Đã thêm lời nhắc chia sẻ', 'info'))],
@@ -152,6 +155,9 @@ export function QuickActions() {
           </button>
         ))}
       </div>
+      <button className="btn btn-danger w-full mt-2" onClick={() => fx('stopAll', 'Đã tắt hết hiệu ứng đang chạy')} title="Dừng mưa hoa, đèn trời, tia sáng và đưa máy quay về toàn cảnh (X)">
+        <CircleStop size={15} /> Tắt hết hiệu ứng đang chạy <span className="kbd !text-[9px] !px-1">X</span>
+      </button>
     </section>
   );
 }
@@ -382,6 +388,7 @@ function FeedRow({ f, now, act }: { f: FeedItem; now: number; act: (id: string, 
         <IconBtn title="Mời lên thắp hương" onClick={() => act(u.id, 'offer', `Đã mời ${u.name} lên thắp hương`)}><Flame size={13} /></IconBtn>
         <IconBtn title="Đọc lời chúc cho người này" onClick={() => act(u.id, 'bless', `Sẽ đọc lời chúc cho ${u.name}`)}><HandHeart size={13} /></IconBtn>
         <IconBtn title="Xếp chỗ trong hội trường" onClick={() => act(u.id, 'seat', `Đã xếp chỗ cho ${u.name}`)}><UserPlus size={13} /></IconBtn>
+        <IconBtn title="Đặt làm khách quý (chỉnh ảnh, màu áo trong Cài đặt → Khách quý)" onClick={() => act(u.id, 'guest', `${u.name} là khách quý. Chỉnh ảnh, màu áo trong Cài đặt → Khách quý`)}><Crown size={13} /></IconBtn>
         <IconBtn title="Chặn người này (ẩn khỏi live)" danger onClick={() => confirm(`Chặn ${u.name}? Người này sẽ không hiện trên sân khấu và không được đọc tên.`) && act(u.id, 'block', `Đã chặn ${u.name}`)}><Ban size={13} /></IconBtn>
       </div>
     </li>
@@ -523,6 +530,7 @@ export function TopCard({ snap }: { snap: Snapshot }) {
               <div className="hidden group-hover:flex gap-0.5">
                 <IconBtn title="Đọc lời cảm ơn" onClick={() => act(t.id, 'thank', `Sẽ cảm ơn ${t.name}`)}><HandHeart size={13} /></IconBtn>
                 <IconBtn title="Mời lên thắp hương" onClick={() => act(t.id, 'offer', `Đã mời ${t.name}`)}><Flame size={13} /></IconBtn>
+                <IconBtn title="Đặt làm khách quý" onClick={() => act(t.id, 'guest', `${t.name} là khách quý`)}><Crown size={13} /></IconBtn>
                 <IconBtn title="Xóa khỏi bảng" danger onClick={() => act(t.id, 'remove', `Đã xóa ${t.name}`)}><X size={13} /></IconBtn>
               </div>
             </li>

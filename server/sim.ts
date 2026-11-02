@@ -45,15 +45,24 @@ export type SimRequest = {
   type: 'join' | 'chat' | 'trigger' | 'wish' | 'gift' | 'bigGift' | 'like' | 'follow' | 'share' | 'crowd' | 'burst';
   text?: string;
   name?: string;
+  id?: string;
   count?: number;
 };
 
 export function simulate(engine: Engine, req: SimRequest) {
   engine.markSim();
-  const who = req.name?.trim() ? { id: `thu_${req.name.trim().toLowerCase()}`, name: req.name.trim(), avatar: '' } : null;
+  // `id` plays a specific TikTok username (e.g. to try out a guest); `name` alone makes a test viewer
+  const id = req.id?.replace(/^@/, '').trim().toLowerCase();
+  const who = id
+    ? { id, name: req.name?.trim() || id, avatar: '' }
+    : req.name?.trim()
+      ? { id: `thu_${req.name.trim().toLowerCase()}`, name: req.name.trim(), avatar: '' }
+      : null;
   const u = () => who ?? someone();
   switch (req.type) {
     case 'join':
+      // a chosen username arrives fresh each time, so the entrance and greeting can be watched again
+      if (id) engine.prepareRejoin(id);
       engine.onJoin(who ?? newViewer(), true);
       break;
     case 'chat':

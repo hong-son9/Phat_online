@@ -158,6 +158,52 @@ body {
   border-color: #ffd36e;
   box-shadow: 0 0 22px rgba(255, 200, 90, 0.9);
 }
+/* guests: bright gold plate, crown, title ribbon, a light sweep across the plate */
+.lbl-guest-plate {
+  gap: 4px;
+  padding: 2px 11px 2px 4px;
+  max-width: 190px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3a2205;
+  background: linear-gradient(180deg, #fff1b8 0%, #f2c55c 45%, #c8901e 100%);
+  border: 1px solid #fff4cc;
+  box-shadow: 0 0 0 1px rgba(120, 70, 10, 0.6), 0 0 18px rgba(255, 205, 90, 0.95);
+  overflow: hidden;
+}
+.lbl-guest-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.65) 50%, transparent 65%);
+  background-size: 250% 100%;
+  animation: shimmer 2.8s linear infinite;
+}
+.lbl-guest-plate .lbl-av {
+  border-color: #fff4cc;
+}
+.lbl-crown {
+  font-size: 13px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(80, 40, 0, 0.6));
+}
+.lbl-title {
+  bottom: 27px !important;
+  white-space: nowrap;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffe7a3;
+  background: rgba(70, 32, 4, 0.9);
+  border: 1px solid #e9b84f;
+}
+.lbl-guest .lbl-bubble {
+  bottom: 50px !important;
+}
+
 .lbl-bubble {
   bottom: 30px !important;
   max-width: 150px;

@@ -1,14 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { MessageCircle, Music, Palette, RotateCcw, Shield, Volume2, Play } from 'lucide-react';
+import { Crown, MessageCircle, Music, Palette, RotateCcw, Shield, Volume2, Play } from 'lucide-react';
 import type { Settings, Snapshot } from '../../shared/types';
 import { api, patchSettings } from '../lib/api';
 import { Drawer, Field, Slider, Toggle, useToast } from './ui';
+import { GuestsTab } from './GuestsTab';
 
-type TabKey = 'display' | 'voice' | 'interact' | 'audio' | 'filter' | 'session';
+type TabKey = 'display' | 'voice' | 'interact' | 'guests' | 'audio' | 'filter' | 'session';
 const TABS: Array<[TabKey, string, ReactNode]> = [
   ['display', 'Hiển thị', <Palette size={15} />],
   ['voice', 'Giọng đọc', <Volume2 size={15} />],
   ['interact', 'Tương tác', <MessageCircle size={15} />],
+  ['guests', 'Khách quý', <Crown size={15} />],
   ['audio', 'Âm thanh', <Music size={15} />],
   ['filter', 'Lọc & chặn', <Shield size={15} />],
   ['session', 'Phiên', <RotateCcw size={15} />],
@@ -36,7 +38,7 @@ export function SettingsDrawer({ open, onClose, snap, initialTab }: { open: bool
 
   return (
     <Drawer open={open} onClose={onClose} title="Cài đặt" width={540}>
-      <div className="flex gap-1 px-4 pt-3 pb-2 overflow-x-auto border-b border-ink-700 sticky top-0 bg-ink-900 z-10">
+      <div className="flex flex-wrap gap-1 px-4 pt-3 pb-2 border-b border-ink-700 sticky top-0 bg-ink-900 z-10">
         {TABS.map(([k, label, icon]) => (
           <button key={k} onClick={() => setTab(k)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] whitespace-nowrap ${tab === k ? 'bg-ink-700 text-gold-100' : 'text-[#9c8a77] hover:text-[#e9dccb]'}`}>
             {icon}
@@ -50,6 +52,7 @@ export function SettingsDrawer({ open, onClose, snap, initialTab }: { open: bool
         {tab === 'interact' && <InteractTab s={s} save={save} />}
         {tab === 'audio' && <AudioTab s={s} save={save} music={snap.music} />}
         {tab === 'filter' && <FilterTab s={s} save={save} />}
+        {tab === 'guests' && <GuestsTab guests={s.guests} channel={s.channelName} />}
         {tab === 'session' && <SessionTab />}
       </div>
     </Drawer>
@@ -104,6 +107,14 @@ function DisplayTab({ s, save }: TabProps) {
       </Field>
       <Toggle on={s.graphics.captions} onChange={(v) => save({ graphics: { captions: v } })} label="Phụ đề giọng đọc" hint="Hiện chữ của câu đang đọc trên sân khấu, chữ sáng dần theo giọng." />
       <Toggle on={s.graphics.hints} onChange={(v) => save({ graphics: { hints: v } })} label="Gợi ý cho người xem" hint="Thẻ nhỏ đổi lần lượt: cách thắp hương, thả tim, comment điều mong cầu." />
+      <div className="mt-3 pt-3 border-t border-ink-700">
+        <div className="text-[13px] font-semibold text-gold-200 mb-1">Hiệu ứng tự động</div>
+        <p className="text-xs text-[#9c8a77] mb-1">Tắt ở đây thì sự kiện không tự kích hoạt hiệu ứng nữa. Các nút Hiệu ứng nhanh vẫn dùng được.</p>
+        <Toggle on={s.effects.rain} onChange={(v) => save({ effects: { rain: v } })} label="Mưa hoa sen khi đủ tim" hint="Tắt thì thanh tim vẫn chạy, đầy thì đếm lại, nhưng không mưa." />
+        <Toggle on={s.effects.bloom} onChange={(v) => save({ effects: { bloom: v } })} label="Sen vàng nở khi có quà" />
+        <Toggle on={s.effects.lanterns} onChange={(v) => save({ effects: { lanterns: v } })} label="Đèn trời khi có quà lớn" />
+        <Toggle on={s.effects.spotlight} onChange={(v) => save({ effects: { spotlight: v } })} label="Máy quay áp sát người tặng quà" hint="Tắt thì sân khấu luôn giữ toàn cảnh hội trường." />
+      </div>
       <Toggle on={s.graphics.disclaimer} onChange={(v) => save({ graphics: { disclaimer: v } })} label="Dòng lưu ý chạy chữ" hint="“Không gian thư giãn mang tính giải trí... quà tặng không phải cúng dường”. Nên giữ bật." />
     </>
   );

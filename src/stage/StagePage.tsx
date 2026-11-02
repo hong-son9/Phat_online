@@ -84,6 +84,12 @@ export default function StagePage({ preview }: { preview: boolean }) {
 
   useBus('fx', ({ fx, power = 1 }) => {
     worldRef.current?.fx(fx, power);
+    if (fx === 'stopAll') {
+      setBlooms([]);
+      setHearts([]);
+      return;
+    }
+    if (fx === 'stopRain') return;
     if (fx === 'bloom') {
       const id = Date.now() + Math.random();
       setBlooms((b) => [...b.slice(-2), { id, power }]);
@@ -109,7 +115,9 @@ export default function StagePage({ preview }: { preview: boolean }) {
     const u = f.type === 'system' ? null : f.user;
     if (u) {
       const base = { id: f.id, name: u.name, avatar: u.avatar };
-      if (f.type === 'join') pushTicker({ ...base, icon: '🌸', text: 'vừa ghé vào' });
+      const guest = snap?.settings.guests.find((g) => g.id === u.id);
+      if (f.type === 'join' && guest) pushTicker({ ...base, icon: '👑', text: `· ${guest.title || 'Khách quý'} vừa đến` });
+      else if (f.type === 'join') pushTicker({ ...base, icon: '🌸', text: 'vừa ghé vào' });
       else if (f.type === 'chat' && f.trigger) pushTicker({ ...base, icon: '🕯️', text: 'lên thắp hương' });
       else if (f.type === 'gift') pushTicker({ ...base, icon: '🎁', text: `tặng ${f.count > 1 ? `${f.count} × ` : ''}${f.giftName}` });
       else if (f.type === 'follow') pushTicker({ ...base, icon: '💛', text: 'đã theo dõi' });

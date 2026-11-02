@@ -4,6 +4,17 @@ export type Viewer = { id: string; name: string; avatar: string };
 
 export type Quality = 'low' | 'medium' | 'high';
 
+// A viewer the owner picked out: their own picture, robe colour, title and greeting
+export type Guest = {
+  id: string; // TikTok @username, lowercase, without @
+  title: string; // shown on their name plate, e.g. "Khách quý"
+  robe: string; // #rrggbb
+  image: string; // file name in data/guests, '' = their TikTok avatar
+  greeting: string; // said when they join; {name} and {channel} are filled in; '' = default
+  frontRow: boolean;
+  skipQueue: boolean;
+};
+
 export type Settings = {
   channelName: string;
   subtitle: string;
@@ -29,8 +40,11 @@ export type Settings = {
   shareReminderMinutes: number;
   audio: { music: boolean; musicTrack: string; musicVolume: number; sfx: boolean; sfxVolume: number };
   graphics: { quality: Quality; captions: boolean; disclaimer: boolean; hints: boolean; theme: 'dusk' | 'night' };
+  // automatic effects (the dashboard buttons always work)
+  effects: { rain: boolean; bloom: boolean; lanterns: boolean; spotlight: boolean };
   bannedWords: string[];
   blockedUsers: string[];
+  guests: Guest[];
   setupDone: boolean;
 };
 
@@ -115,7 +129,7 @@ export type FeedItem =
   | { type: 'like'; id: string; at: number; user: Viewer; count: number; sim?: boolean }
   | { type: 'system'; id: string; at: number; text: string; level: 'info' | 'success' | 'warn' | 'error' };
 
-export type FxName = 'bell' | 'gong' | 'chime' | 'bloom' | 'rain' | 'lanterns';
+export type FxName = 'bell' | 'gong' | 'chime' | 'bloom' | 'rain' | 'lanterns' | 'stopRain' | 'stopAll';
 export type FxEvent = { fx: FxName; power?: number };
 
 export const SEAT_COUNT = 96;

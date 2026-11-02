@@ -128,11 +128,12 @@ export class Engine {
       settings: this.settings,
       live: this.link.status,
       stats: this.stats,
-      hall: [...this.hall.values()].map(({ seat, id, name, avatar, vip }) => ({ seat, id, name, avatar, vip })),
-      top,
-      offers: this.offers,
-      offerQueue: this.offerQueue.map(({ id, name, avatar }) => ({ id, name, avatar })),
-      spotlight: this.spotlight,
+      // avatars re-resolved here so a guest picture set mid-live shows on people already in the hall
+      hall: [...this.hall.values()].map(({ seat, id, name, avatar, vip }) => ({ seat, id, name, avatar: this.avatarOf(id, avatar), vip })),
+      top: top.map((t) => ({ ...t, avatar: this.avatarOf(t.id, t.avatar) })),
+      offers: this.offers.map((o) => ({ ...o, avatar: this.avatarOf(o.viewerId, o.avatar) })),
+      offerQueue: this.offerQueue.map(({ id, name, avatar }) => ({ id, name, avatar: this.avatarOf(id, avatar) })),
+      spotlight: this.spotlight && { ...this.spotlight, avatar: this.avatarOf(this.spotlight.viewerId, this.spotlight.avatar) },
       likes: { progress: this.likeProgress, goal: this.settings.likeGoal, rainUntil: this.rainUntil },
       voice: voice.voiceState(),
       stages: { count: stageCount(), audio: hasAudioStage() },
@@ -184,8 +185,18 @@ export class Engine {
   // Recently seen viewers, so dashboard actions also work on someone who only just joined
   private known = new Map<string, Viewer>();
 
+  private guestOf(id: string) {
+    return this.settings.guests.find((g) => g.id === id);
+  }
+
+  // The owner's chosen picture for a guest (served from data/guests), otherwise their TikTok avatar
+  private avatarOf(id: string, fallback: string) {
+    const g = this.guestOf(id);
+    return g?.image ? `/guest-img/${encodeURIComponent(g.image)}` : fallback;
+  }
+
   private clean(u: Viewer): Viewer {
-    const v = { id: u.id, name: maskBanned(u.name), avatar: u.avatar };
+    const v = { id: u.id, name: maskBanned(u.name), avatar: this.avatarOf(u.id, u.avatar) };
     this.known.delete(v.id);
     this.known.set(v.id, v);
     if (this.known.size > 1000) this.known.delete(this.known.keys().next().value!);
@@ -220,11 +231,10 @@ export class Engine {
       return;
     }
     let seat = -1;
-    for (let i = 0; i < SEAT_COUNT; i++) {
-      if (!this.hall.has(i)) {
-        seat = i;
-        break;
-      }
+    const guest = this.guestOf(u.id);
+    if (guest?.frontRow) seat = this.frontSeatFor();
+    for (let i = 0; i < SEAT_COUNT && seat === -1; i++) {
+      if (!this.hall.has(i)) seat = i;
     }
     if (seat === -1) {
       // never someone who is up at the burner right now; regular viewers go before gift givers
@@ -244,13 +254,33 @@ export class Engine {
 
   // ---------- incense line (max 5 at the burner, the rest wait) ----------
 
+  // A seat in the first two rows for a guest: a free one, or the quietest regular viewer there
+  // moves back to a free seat further down (or leaves if the hall is full)
+  private frontSeatFor(): number {
+    const FRONT = 16;
+    for (let i = 0; i < FRONT; i++) if (!this.hall.has(i)) return i;
+    const busy = new Set(this.offers.map((o) => o.viewerId));
+    const movable = [...this.hall.values()].filter((s) => s.seat < FRONT && !busy.has(s.id) && !this.guestOf(s.id));
+    if (!movable.length) return -1;
+    const out = movable.reduce((a, b) => (b.lastActive < a.lastActive ? b : a));
+    this.hall.delete(out.seat);
+    for (let i = FRONT; i < SEAT_COUNT; i++) {
+      if (!this.hall.has(i)) {
+        this.hall.set(i, { ...out, seat: i });
+        break;
+      }
+    }
+    return out.seat;
+  }
+
   requestOffer(u: Viewer, gift: boolean) {
     const now = Date.now();
     if (this.offers.some((o) => o.viewerId === u.id)) return;
+    // gift givers and guests marked "skip the line" go ahead of everyone else waiting
+    const priority = gift || !!this.guestOf(u.id)?.skipQueue;
     const queued = this.offerQueue.findIndex((q) => q.id === u.id);
     if (queued !== -1) {
-      // a gift moves someone already waiting to the front
-      if (gift) {
+      if (priority) {
         const [q] = this.offerQueue.splice(queued, 1);
         this.offerQueue.unshift({ ...q, gift: true });
         this.touch();
@@ -259,8 +289,8 @@ export class Engine {
     }
     if (!gift && now - (this.lastOfferAt.get(u.id) ?? 0) < OFFER_COOLDOWN_MS) return;
     this.lastOfferAt.set(u.id, now);
-    const entry = { ...u, gift };
-    if (gift) {
+    const entry = { ...u, gift: priority };
+    if (priority) {
       const i = this.offerQueue.findIndex((q) => !q.gift);
       this.offerQueue.splice(i === -1 ? this.offerQueue.length : i, 0, entry);
     } else {
@@ -337,6 +367,22 @@ export class Engine {
     const u = this.clean(raw);
     this.stats.joins++;
     this.feed({ type: 'join', id: fid(), at: Date.now(), user: u, sim });
+    const guest = this.guestOf(u.id);
+    if (guest) {
+      // A guest walks straight in to a bell, and is greeted on their own, ahead of the batch
+      this.seat(u);
+      this.fx('bell', 0.7);
+      if (this.settings.read.joins && !this.greeted.has(u.id)) {
+        this.greeted.add(u.id);
+        const vars = { name: spokenName(u.name), channel: this.channel, title: guest.title || 'khách quý' };
+        const line = guest.greeting
+          ? L.fill(guest.greeting, vars)
+          : L.fill('A Di Đà Phật, {channel} xin trân trọng chào đón {title} {name} đã ghé thăm. Chúc bạn một buổi thật an yên.', { ...vars, title: vars.title.toLowerCase() });
+        this.say(line, 'join', true);
+      }
+      this.touch();
+      return;
+    }
     setTimeout(() => this.seat(u), SEAT_DELAY_MS);
     if (this.settings.read.joins && !this.greeted.has(u.id) && !this.greetQueue.some((g) => g.id === u.id)) {
       this.greetQueue = [...this.greetQueue, u].slice(-40);
@@ -384,9 +430,10 @@ export class Engine {
     this.feed({ type: 'gift', id: fid(), at: Date.now(), user: u, giftName, count, coins, image, sim });
     this.seat(u, true);
     this.requestOffer(u, true);
-    this.requestSpotlight({ viewer: u, giftName, count, coins });
-    this.fx('bloom', Math.min(3, 0.6 + Math.log10(1 + coins)));
-    if (coins >= BIG_GIFT_COINS) this.fx('lanterns', Math.min(3, coins / 100));
+    const fx = this.settings.effects;
+    if (fx.spotlight) this.requestSpotlight({ viewer: u, giftName, count, coins });
+    if (fx.bloom) this.fx('bloom', Math.min(3, 0.6 + Math.log10(1 + coins)));
+    if (fx.lanterns && coins >= BIG_GIFT_COINS) this.fx('lanterns', Math.min(3, coins / 100));
     if (this.settings.read.gifts) this.queueGiftThanks(u, giftName, count, coins);
     this.touch();
   }
@@ -463,7 +510,19 @@ export class Engine {
     const total = this.likeProgress + n;
     const rains = Math.floor(total / goal);
     this.likeProgress = total % goal;
-    if (rains > 0) this.startRain(rains);
+    // with the automatic rain switched off the bar still fills and starts over, just without the rain
+    if (rains > 0 && this.settings.effects.rain) this.startRain(rains);
+    this.touch();
+  }
+
+  // Dashboard: stop the flower rain, or everything (rain, lanterns, sparks, the gift close-up and its queue)
+  stopEffects(what: 'rain' | 'all') {
+    this.rainUntil = 0;
+    if (what === 'all') {
+      this.spotlight = null;
+      this.spotQueue = [];
+    }
+    this.fx(what === 'all' ? 'stopAll' : 'stopRain');
     this.touch();
   }
 
@@ -552,6 +611,14 @@ export class Engine {
       this.updateSettings({ blockedUsers: [...this.settings.blockedUsers, id] });
       this.removeViewer(id);
     } else if (action === 'remove') this.removeViewer(id);
+    else if (action === 'guest') {
+      if (!this.guestOf(id)) {
+        this.updateSettings({ guests: [...this.settings.guests, { id, title: 'Khách quý', robe: '#e0a526', image: '', greeting: '', frontRow: true, skipQueue: true }] });
+      }
+      // move them to the front now, not just next time they join
+      for (const [seat, s] of this.hall) if (s.id === id && seat >= 16) this.hall.delete(seat);
+      this.seat(viewer);
+    }
     else return false;
     this.touch();
     return true;
@@ -585,6 +652,13 @@ export class Engine {
     }
     this.touch();
     this.persist();
+  }
+
+  // Test mode: let someone "arrive" again, walking in from the door and greeted again
+  prepareRejoin(id: string) {
+    this.greeted.delete(id);
+    for (const [seat, s] of this.hall) if (s.id === id) this.hall.delete(seat);
+    this.touch();
   }
 
   markSim() {

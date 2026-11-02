@@ -2,7 +2,8 @@
 // through textContent), positioned with transforms every frame by the world.
 
 export type LabelKind = 'hall' | 'top' | 'offer' | 'spot';
-export type LabelData = { name: string; avatar: string; vip: boolean; kind: LabelKind; rank?: number };
+// guest = the title the owner gave this viewer ("Khách quý"); their plate is gold with a crown
+export type LabelData = { name: string; avatar: string; vip: boolean; kind: LabelKind; rank?: number; guest?: string };
 
 const PALETTE = ['#b45309', '#9d174d', '#0f766e', '#6d28d9', '#1d4ed8', '#a16207', '#be123c', '#047857'];
 export const colorFor = (s: string) => PALETTE[[...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
@@ -48,13 +49,28 @@ export class Label {
 
   private render() {
     const d = this.data;
-    const sig = `${d.kind}|${d.name}|${d.avatar}|${d.vip}|${d.rank}`;
+    const sig = `${d.kind}|${d.name}|${d.avatar}|${d.vip}|${d.rank}|${d.guest}`;
     if (sig === this.sig) return;
     this.sig = sig;
     const keepBubble = this.bubble;
     this.el.replaceChildren();
-    this.el.className = `lbl lbl-${d.kind}${d.vip ? ' lbl-vip' : ''}`;
-    if (d.kind === 'hall') {
+    this.el.className = `lbl lbl-${d.kind}${d.vip ? ' lbl-vip' : ''}${d.guest ? ' lbl-guest' : ''}`;
+    if (d.guest) {
+      // Always the full gold plate (name and picture), with the title on a ribbon above
+      const plate = document.createElement('div');
+      plate.className = 'lbl-plate lbl-guest-plate';
+      const crown = document.createElement('span');
+      crown.className = 'lbl-crown';
+      crown.textContent = '👑';
+      plate.append(crown, avatarEl(d.name, d.avatar, d.kind === 'spot' ? 28 : 24));
+      const name = document.createElement('span');
+      name.textContent = d.name;
+      plate.appendChild(name);
+      const title = document.createElement('div');
+      title.className = 'lbl-title';
+      title.textContent = d.guest;
+      this.el.append(plate, title);
+    } else if (d.kind === 'hall') {
       this.el.appendChild(avatarEl(d.name, d.avatar, 22));
     } else if (d.kind === 'top') {
       const av = avatarEl(d.name, d.avatar, 26);

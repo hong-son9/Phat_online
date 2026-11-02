@@ -27,6 +27,11 @@ Giữ cửa sổ `CHAY-LIVE.bat` mở suốt buổi live; đóng nó là tắt a
 - **Phụ đề giọng đọc**: chữ của câu đang đọc hiện trên màn hình, sáng dần theo giọng.
 - Hai không khí: Hoàng hôn ấm / Đêm tĩnh lặng. Bảng hoành phi trên điện hiện tên kênh của bạn.
 
+**Khách quý** (Cài đặt → Khách quý)
+- Chọn người xem theo username TikTok. Mỗi lần họ vào live: nhân vật mặc **áo màu riêng**, to hơn, có **hào quang vàng** trên đầu, vòng sáng dưới chân, đốm sáng lấp lánh, **bảng tên vàng có vương miện** và danh hiệu (Khách quý, Đạo hữu…), dùng **ảnh đại diện riêng** bạn tải lên.
+- Vào live là chuông ngân, được đọc **lời chào riêng** ngay, ngồi hai hàng đầu, gõ từ khóa là được lên thắp hương trước.
+- Đang live, rê chuột vào một người trong bảng Hoạt động hoặc TOP rồi bấm 👑 là đặt họ làm khách quý ngay.
+
 **Giọng đọc** (giọng Hoài My hoặc Nam Minh của Microsoft, dự phòng Google)
 - Cảm ơn người tặng quà (gộp combo thành 1 câu: “cảm ơn bạn X đã gửi 5 hoa hồng”), luôn đọc trước.
 - Chào từng người mới vào, gộp 3 tên một câu; phòng quá đông thì ưu tiên người vào gần nhất.

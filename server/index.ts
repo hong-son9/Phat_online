@@ -6,6 +6,8 @@ import * as hub from './hub';
 import * as voice from './voice';
 import { simulate, type SimRequest } from './sim';
 import { MUSIC_DIR } from './music';
+import { DATA_DIR } from './store';
+import fs from 'fs';
 
 const PORT = Number(process.env.PORT) || 3000;
 const app = express();
@@ -129,6 +131,8 @@ app.get('/api/voices', (_req, res) => res.json(voice.VOICES));
 app.post('/api/fx', (req, res) => {
   const fx = String(req.body?.fx ?? '');
   if (fx === 'rain') engine.startRain(1, false);
+  else if (fx === 'stopRain') engine.stopEffects('rain');
+  else if (fx === 'stopAll') engine.stopEffects('all');
   else if (['bell', 'gong', 'chime', 'bloom', 'lanterns'].includes(fx)) engine.fx(fx as 'bell', Number(req.body?.power) || 1);
   else return bad(res, 'Hiệu ứng không hợp lệ.');
   ok(res);
@@ -139,9 +143,48 @@ app.post('/api/sim', (req, res) => {
   ok(res);
 });
 
+// ---------- guest pictures ----------
+
+const GUEST_DIR = path.join(DATA_DIR, 'guests');
+const IMAGE_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+
+app.put('/api/guests/:id/image', express.raw({ type: 'image/*', limit: '4mb' }), (req, res) => {
+  const id = String(req.params.id).replace(/^@/, '').trim().toLowerCase();
+  if (!/^[\w.]{1,40}$/.test(id)) return bad(res, 'Username không hợp lệ.');
+  const ext = IMAGE_TYPES[String(req.headers['content-type'] ?? '').split(';')[0]];
+  if (!ext || !Buffer.isBuffer(req.body) || !req.body.length) return bad(res, 'Chỉ nhận ảnh PNG, JPG, WEBP hoặc GIF.');
+  fs.mkdirSync(GUEST_DIR, { recursive: true });
+  // A new name on every upload, so no browser keeps showing the old picture
+  const file = `${id}-${Date.now().toString(36)}.${ext}`;
+  fs.writeFileSync(path.join(GUEST_DIR, file), req.body);
+  ok(res, { image: file });
+});
+
+// Pictures no guest uses any more (replaced or guest removed); recent uploads are kept,
+// as their guest may not be saved yet
+function cleanGuestImages() {
+  const used = new Set(engine.settings.guests.map((g) => g.image));
+  try {
+    for (const f of fs.readdirSync(GUEST_DIR)) {
+      const full = path.join(GUEST_DIR, f);
+      if (!used.has(f) && Date.now() - fs.statSync(full).mtimeMs > 10 * 60 * 1000) fs.rmSync(full, { force: true });
+    }
+  } catch {
+    // no guest pictures yet
+  }
+}
+setInterval(cleanGuestImages, 10 * 60 * 1000);
+
+app.use('/guest-img', express.static(GUEST_DIR));
+
 // ---------- static ----------
 
 app.use('/music', express.static(MUSIC_DIR));
+
+app.use((err: { type?: string; status?: number }, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err?.type === 'entity.too.large') return bad(res, 'Ảnh quá lớn, tối đa 4 MB.', 413);
+  next(err);
+});
 
 function alreadyRunning() {
   console.error(`\n  ✿ An Nhiên Live đã đang chạy ở một cửa sổ khác (cổng ${PORT} đang bận).`);

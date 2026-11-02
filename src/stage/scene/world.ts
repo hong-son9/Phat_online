@@ -4,7 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import type { Offer, Quality, Snapshot } from '../../../shared/types';
+import type { Guest, Offer, Quality, Snapshot } from '../../../shared/types';
 import { OFFER_MS, SEAT_COUNT, TOP_CUSHIONS } from '../../../shared/types';
 import { buildTemple, BURNER, type Temple } from './temple';
 import { Crowd, HAIRS, NPC_ROBES, SKINS, VIEWER_ROBES, handsPosition, headPosition, newPose, type Look, type Pose } from './people';
@@ -111,6 +111,22 @@ class Actor {
       hair: new THREE.Color(HAIRS[Math.floor(r() * HAIRS.length)]),
       bald: r() < (viewer ? 0.15 : 0.35),
     };
+    this.guestSig = '';
+    this.pose.scale = 1;
+  }
+
+  guest: Guest | null = null;
+  private guestSig = '';
+
+  // A guest wears the robe colour the owner picked and stands a little taller than everyone else
+  setGuest(g: Guest | null) {
+    const sig = g ? `${g.id}|${g.robe}` : '';
+    this.guest = g;
+    if (sig === this.guestSig) return;
+    this.guestSig = sig;
+    this.pose.scale = g ? 1.15 : 1;
+    if (g) this.look = { ...this.look, robe: new THREE.Color(g.robe) };
+    else if (this.look) this.setLook(this.viewerId || this.key, !!this.viewerId);
   }
 
   walkTo(target: P2, now: number, from?: P2) {
@@ -226,6 +242,12 @@ class PetalRain {
     this.items = Array.from({ length: max }, () => ({ p: new THREE.Vector3(), v: new THREE.Vector3(), r: new THREE.Euler(), s: new THREE.Vector3(1, 1, 1), alive: false, gold: false }));
     for (let i = 0; i < max; i++) this.mesh.setColorAt(i, new THREE.Color(1, 1, 1));
   }
+  clear() {
+    this.rate = 0;
+    this.emitAcc = 0;
+    for (const it of this.items) it.alive = false;
+  }
+
   spawn(n: number, gold = false, origin?: THREE.Vector3) {
     for (const it of this.items) {
       if (n <= 0) break;
@@ -278,6 +300,11 @@ class SkyLanterns {
   private glow = new THREE.SpriteMaterial({ map: glowTexture('rgba(255,210,140,1)', 'rgba(255,120,40,0.35)'), blending: THREE.AdditiveBlending, depthWrite: false });
   private coreGeo = new THREE.CylinderGeometry(0.16, 0.12, 0.32, 10, 1, true);
   private coreMat = new THREE.MeshBasicMaterial({ color: 0xe8641c, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+  clear() {
+    for (const it of this.items) this.group.remove(it.s, it.core);
+    this.items = [];
+  }
+
   launch(n: number, now: number) {
     for (let i = 0; i < n; i++) {
       const s = new THREE.Sprite(this.glow);
@@ -315,6 +342,15 @@ class Sparks {
     this.points = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.16, map: glowTexture('rgba(255,245,200,1)', 'rgba(255,200,80,0.5)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffd27a }));
     this.points.frustumCulled = false;
   }
+  clear() {
+    const pos = this.points.geometry.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < this.n; i++) {
+      this.life[i] = 0;
+      pos.setXYZ(i, 0, -99, 0);
+    }
+    pos.needsUpdate = true;
+  }
+
   burst(origin: THREE.Vector3, count: number, power: number) {
     const pos = this.points.geometry.attributes.position as THREE.BufferAttribute;
     let made = 0;
@@ -328,6 +364,19 @@ class Sparks {
       this.vel.set([Math.cos(a) * sp, 2 + Math.random() * 3 * power, Math.sin(a) * sp * 0.6 + 0.8], i * 3);
     }
   }
+  // One slow sparkle drifting up from around a point (guests' halos)
+  twinkle(origin: THREE.Vector3, scale = 1) {
+    const pos = this.points.geometry.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < this.n; i++) {
+      if (this.life[i] > 0) continue;
+      this.life[i] = 1.1 + Math.random() * 0.6;
+      const a = Math.random() * Math.PI * 2;
+      pos.setXYZ(i, origin.x + Math.cos(a) * 0.25 * scale, origin.y - Math.random() * 0.5 * scale, origin.z + Math.sin(a) * 0.25 * scale);
+      this.vel.set([Math.cos(a) * 0.15, 1.9 + Math.random() * 0.4, Math.sin(a) * 0.15], i * 3);
+      return;
+    }
+  }
+
   update(dt: number) {
     const pos = this.points.geometry.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < this.n; i++) {
@@ -363,6 +412,8 @@ export class World {
   private sparks = new Sparks();
   private sticks: THREE.Group[] = [];
   private rings: THREE.Mesh[] = [];
+  private halos: THREE.Group[] = [];
+  private lastTwinkle = 0;
   private quality: Quality = 'high';
   private raf = 0;
   private last = performance.now();
@@ -404,12 +455,28 @@ export class World {
     }
 
     const ringMat = new THREE.MeshBasicMaterial({ map: ringTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 16; i++) {
       const r = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), ringMat.clone());
       r.rotation.x = -Math.PI / 2;
       r.visible = false;
       this.scene.add(r);
       this.rings.push(r);
+    }
+
+    // Halos that float over guests' heads: a thin golden ring with a soft glow
+    const haloMat = new THREE.MeshBasicMaterial({ color: 0xffd36a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    const haloGlow = new THREE.SpriteMaterial({ map: glowTexture('rgba(255,236,170,0.85)', 'rgba(255,190,70,0.28)'), blending: THREE.AdditiveBlending, depthWrite: false });
+    const haloGeo = new THREE.TorusGeometry(0.15, 0.017, 8, 36);
+    for (let i = 0; i < 10; i++) {
+      const g = new THREE.Group();
+      const ring = new THREE.Mesh(haloGeo, haloMat);
+      ring.rotation.x = Math.PI / 2 - 0.25;
+      const glow = new THREE.Sprite(haloGlow);
+      glow.scale.setScalar(0.6);
+      g.add(ring, glow);
+      g.visible = false;
+      this.scene.add(g);
+      this.halos.push(g);
     }
 
     this.camera.position.copy(WIDE_POS);
@@ -479,6 +546,7 @@ export class World {
     const topIds = new Set(snap.top.slice(0, TOP_CUSHIONS).map((t) => t.id));
     const seatOf = new Map(snap.hall.map((h) => [h.id, h]));
     const spotId = snap.spotlight?.viewerId;
+    const guests = new Map(snap.settings.guests.map((g) => [g.id, g]));
 
     const ensure = (key: string, home: P2) => {
       let a = this.actors.get(key);
@@ -515,9 +583,10 @@ export class World {
         if (!a.offer) a.walkTo(home, now);
       }
       a.home = home;
+      a.setGuest(guests.get(t.id) ?? null);
       a.setOffer(offers.get(t.id) ?? null);
       const kind = spotId === t.id ? 'spot' : a.offer ? 'offer' : 'top';
-      setLabel(a, { name: t.name, avatar: t.avatar, vip: t.coins > 0, kind, rank: i + 1 });
+      setLabel(a, { name: t.name, avatar: t.avatar, vip: t.coins > 0, kind, rank: i + 1, guest: a.guest ? a.guest.title || 'Khách quý' : undefined });
     });
 
     // The hall: viewers in their seats, everyone else is a quiet background figure
@@ -534,10 +603,11 @@ export class World {
         if (arriving) a.walkTo(SEATS[i], now, ENTRANCE);
         else a.move = null;
       }
+      a.setGuest(who ? (guests.get(who.id) ?? null) : null);
       if (who) {
         a.setOffer(offers.get(who.id) ?? null);
         const kind = spotId === who.id ? 'spot' : a.offer ? 'offer' : 'hall';
-        setLabel(a, { name: who.name, avatar: who.avatar, vip: who.vip, kind });
+        setLabel(a, { name: who.name, avatar: who.avatar, vip: who.vip, kind, guest: a.guest ? a.guest.title || 'Khách quý' : undefined });
       } else setLabel(a, null);
     }
 
@@ -564,6 +634,16 @@ export class World {
 
   fx(name: string, power = 1) {
     const now = performance.now();
+    if (name === 'stopRain') {
+      this.petals.clear();
+      return;
+    }
+    if (name === 'stopAll') {
+      this.petals.clear();
+      this.lanterns.clear();
+      this.sparks.clear();
+      return;
+    }
     if (name === 'bloom') {
       this.temple.glowAltar(power);
       this.sparks.burst(new THREE.Vector3(0, 4.5, -14.5), Math.round(40 + power * 50), 0.8 + power * 0.4);
@@ -616,15 +696,31 @@ export class World {
     for (const a of this.actors.values()) {
       if (ring >= this.rings.length) break;
       const isSpot = !!spot && a.viewerId === spot.viewerId;
-      if (!isSpot && !a.offer) continue;
+      if (!isSpot && !a.offer && !a.guest) continue;
       const r = this.rings[ring++];
       r.visible = true;
       r.position.set(a.pose.x, 0.02, a.pose.z);
       const pulse = 1 + Math.sin(t * 3 + ring) * 0.08;
-      r.scale.setScalar((isSpot ? 1.7 : 1.15) * pulse);
-      (r.material as THREE.MeshBasicMaterial).opacity = isSpot ? 0.95 : 0.6;
+      r.scale.setScalar((isSpot ? 1.7 : a.guest ? 1.35 : 1.15) * pulse);
+      (r.material as THREE.MeshBasicMaterial).opacity = isSpot ? 0.95 : a.guest ? 0.8 : 0.6;
     }
     for (; ring < this.rings.length; ring++) this.rings[ring].visible = false;
+
+    // Guests: a halo bobbing over the head and a few sparkles drifting up around them
+    let halo = 0;
+    const twinkle = nowP - this.lastTwinkle > 350;
+    if (twinkle) this.lastTwinkle = nowP;
+    for (const a of this.actors.values()) {
+      if (!a.guest || halo >= this.halos.length) continue;
+      const h = this.halos[halo++];
+      headPosition(a.pose, h.position);
+      h.position.y += 0.02 * a.pose.scale + Math.sin(t * 2.2 + halo) * 0.025;
+      h.scale.setScalar(a.pose.scale);
+      h.children[0].rotation.z = t * 0.8;
+      h.visible = true;
+      if (twinkle) this.sparks.twinkle(h.position, a.pose.scale);
+    }
+    for (; halo < this.halos.length; halo++) this.halos[halo].visible = false;
 
     // Flower rain runs on the server clock, so it stops on time even when nothing else changes
     this.petals.rate = this.snap && this.snap.likes.rainUntil > serverNow ? 14 : 0;
@@ -668,6 +764,7 @@ export class World {
     for (const a of this.actors.values()) {
       if (!a.label) continue;
       headPosition(a.pose, v);
+      if (a.guest) v.y += 0.22 * a.pose.scale;
       const dist = v.distanceTo(this.camera.position);
       v.project(this.camera);
       // During a close-up only the gift giver and people at the burner keep their name plates
@@ -676,9 +773,9 @@ export class World {
       const x = (v.x * 0.5 + 0.5) * w;
       const y = (-v.y * 0.5 + 0.5) * h;
       const kind = a.label.data.kind;
-      const base = kind === 'hall' ? 11 : kind === 'top' ? 10 : 12;
+      const base = a.guest ? 13 : kind === 'hall' ? 11 : kind === 'top' ? 10 : 12;
       const scale = Math.min(kind === 'spot' ? 1.8 : 1.35, Math.max(0.55, base / dist));
-      const z = kind === 'spot' ? 1000 : kind === 'offer' ? 900 : a.label.talking ? 800 : Math.round(500 - dist * 10);
+      const z = kind === 'spot' ? 1000 : kind === 'offer' ? 900 : a.guest ? 850 : a.label.talking ? 800 : Math.round(500 - dist * 10);
       a.label.place(x, y, scale, visible, z);
     }
   }

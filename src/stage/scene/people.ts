@@ -14,11 +14,12 @@ export type Pose = {
   hands: number; // 0 joined at the chest .. 1 raised to the forehead (holding incense)
   walk: number; // walk cycle phase in radians, or -1 when still
   visible: boolean;
+  scale: number; // 1 = normal; guests are drawn a little larger
 };
 
 export type Look = { robe: THREE.Color; skin: THREE.Color; hair: THREE.Color; bald: boolean };
 
-export const newPose = (x = 0, z = 0): Pose => ({ x, z, heading: 0, kneel: 1, bow: 0, hands: 0, walk: -1, visible: true });
+export const newPose = (x = 0, z = 0): Pose => ({ x, z, heading: 0, kneel: 1, bow: 0, hands: 0, walk: -1, visible: true, scale: 1 });
 
 const lathe = (pts: Array<[number, number]>) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 18);
 
@@ -43,7 +44,7 @@ const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 function hipMatrix(p: Pose, out: THREE.Matrix4) {
   const k = p.kneel;
   const bob = p.walk >= 0 ? Math.abs(Math.sin(p.walk)) * 0.035 : 0;
-  root.compose(v.set(p.x, bob, p.z), q.setFromEuler(e.set(0, p.heading, 0)), s.set(1, 1, 1));
+  root.compose(v.set(p.x, bob, p.z), q.setFromEuler(e.set(0, p.heading, 0)), s.set(p.scale, p.scale, p.scale));
   const lean = p.walk >= 0 ? -0.06 : 0;
   const sway = p.walk >= 0 ? Math.sin(p.walk) * 0.05 : 0;
   tmp.compose(v.set(0, 0.44 - 0.24 * k, -0.02 * k), q.setFromEuler(e.set(-p.bow * 1.2 + lean, 0, sway)), s.set(1, 1, 1));
@@ -123,7 +124,7 @@ export class Crowd {
     }
     tmp.compose(v.set(0, 0.26 + p.hands * 0.18, -0.15 - p.hands * 0.03), q.identity(), s.set(0.055, 0.085, 0.05));
     this.hands.setMatrixAt(i, m.multiplyMatrices(hip, tmp));
-    tmp.compose(v.set(p.x, 0.012, p.z), q.setFromEuler(e.set(-Math.PI / 2, 0, 0)), s.set(1, 1, 1));
+    tmp.compose(v.set(p.x, 0.012, p.z), q.setFromEuler(e.set(-Math.PI / 2, 0, 0)), s.set(p.scale, p.scale, 1));
     this.shadow.setMatrixAt(i, tmp);
   }
 
