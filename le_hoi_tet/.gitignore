@@ -1,0 +1,10 @@
+node_modules
+dist
+data
+music/*
+!music/README.txt
+!music/credits.json
+# the CC BY tracks are bundled in the main app's music/ folder; copy them here to use them
+*.log
+.vscode
+*.lnk
