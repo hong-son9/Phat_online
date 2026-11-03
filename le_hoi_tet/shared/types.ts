@@ -39,7 +39,7 @@ export type Settings = {
   };
   idleSeconds: number;
   shareReminderMinutes: number;
-  audio: { music: boolean; musicTrack: string; musicVolume: number; sfx: boolean; sfxVolume: number };
+  audio: { music: boolean; musicTrack: string; musicVolume: number; sfx: boolean; sfxVolume: number; drumVolume: number };
   // theme: 'auto' follows the clock (day from dayFrom, night from nightFrom, both minutes after midnight)
   graphics: { quality: Quality; captions: boolean; disclaimer: boolean; hints: boolean; theme: 'dusk' | 'night' | 'auto'; dayFrom: number; nightFrom: number };
   // automatic effects (the dashboard buttons always work)

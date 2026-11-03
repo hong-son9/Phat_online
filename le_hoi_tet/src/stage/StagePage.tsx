@@ -85,8 +85,8 @@ export default function StagePage({ preview }: { preview: boolean }) {
   const voiceVolume = snap?.settings.voice.volume ?? 1;
   useEffect(() => {
     if (!a || !audioRole) return;
-    stageAudio.configure({ music: a.music, track: a.musicTrack, musicVolume: a.musicVolume, sfx: a.sfx, sfxVolume: a.sfxVolume, voiceVolume });
-  }, [audioRole, a?.music, a?.musicTrack, a?.musicVolume, a?.sfx, a?.sfxVolume, voiceVolume]); // eslint-disable-line react-hooks/exhaustive-deps
+    stageAudio.configure({ music: a.music, track: a.musicTrack, musicVolume: a.musicVolume, sfx: a.sfx, sfxVolume: a.sfxVolume, drumVolume: a.drumVolume, voiceVolume });
+  }, [audioRole, a?.music, a?.musicTrack, a?.musicVolume, a?.sfx, a?.sfxVolume, a?.drumVolume, voiceVolume]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A ref, not just state: the server sends the first line right after granting the audio role,
   // before React has re-rendered

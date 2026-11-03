@@ -15,6 +15,7 @@ class StageAudio {
   private musicKey = '';
   private musicVolume = 0.35;
   private sfxVolume = 0.7;
+  private drumVolume = 0.3; // lion drum and the drums in the music, on their own dial
   private sfxOn = true;
   private ducked = false;
   private voiceEl: HTMLAudioElement | null = null;
@@ -65,8 +66,9 @@ class StageAudio {
 
   // ---------- settings ----------
 
-  configure(o: { music: boolean; track: string; musicVolume: number; sfx: boolean; sfxVolume: number; voiceVolume: number }) {
+  configure(o: { music: boolean; track: string; musicVolume: number; sfx: boolean; sfxVolume: number; drumVolume: number; voiceVolume: number }) {
     this.sfxOn = o.sfx;
+    this.drumVolume = o.drumVolume;
     this.sfxVolume = o.sfxVolume;
     this.musicVolume = o.musicVolume;
     this.voiceVolume = o.voiceVolume;
@@ -85,7 +87,8 @@ class StageAudio {
 
   private applyMusicGain() {
     if (!this.ctx) return;
-    const target = this.musicKey ? this.musicVolume * (this.ducked ? 0.3 : 1) : 0;
+    // music steps back while the voice speaks, but stays audible
+    const target = this.musicKey ? this.musicVolume * (this.ducked ? 0.5 : 1) : 0;
     this.musicBus.gain.setTargetAtTime(target, this.ctx.currentTime, this.ducked ? 0.15 : 0.8);
   }
 
@@ -277,6 +280,8 @@ class StageAudio {
   // Lion-dance drum (trống): a low membrane hit, with a cymbal splash now and then
   drum(power = 1) {
     if (!this.sfxOn || !this.init()) return;
+    power *= this.drumVolume * 2; // 50% on the dial is the original loudness
+    if (power <= 0) return;
     const ctx = this.ctx!;
     const t = ctx.currentTime;
     const o = ctx.createOscillator();
@@ -400,6 +405,8 @@ class StageAudio {
   }
 
   private beat(at: number, big: boolean, gain: number, dest: AudioNode) {
+    gain *= this.drumVolume * 2;
+    if (gain <= 0) return;
     const ctx = this.ctx!;
     const o = ctx.createOscillator();
     const g = ctx.createGain();
@@ -463,9 +470,12 @@ class StageAudio {
     const total = pos; // eighths in one time through
     const startAt = new Map(events.map((e) => [e.at, e]));
     const eighth = kind === 'hoixuan' ? 0.21 : kind === 'tetque' ? 0.34 : 0.25;
-    const bus = this.musicBus;
+    // the notes were voiced quietly; lift the whole track so it sits at a comfortable level
+    const bus = this.ctx!.createGain();
+    bus.gain.value = 2.2;
+    bus.connect(this.musicBus);
 
-    return this.sequence(eighth, (i, at) => {
+    const seq = this.sequence(eighth, (i, at) => {
       const e8 = i % total; // eighth within the song
       const bar = Math.floor(e8 / 4);
       const inBar = e8 % 4;
@@ -510,6 +520,13 @@ class StageAudio {
         if (inBar % 2 === 1) this.noiseAt(at, 0.4, 3, 'highpass', 6500, 0.5, 0.05, bus);
       } else if (e8 % 8 === 0) this.beat(at, true, 0.07, bus);
     });
+    return {
+      stop: () => {
+        seq.stop();
+        // let the last notes ring out before unplugging
+        setTimeout(() => bus.disconnect(), 2000);
+      },
+    };
   }
 
   private fileTrack(url: string): MusicHandle {

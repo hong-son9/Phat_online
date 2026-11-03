@@ -245,6 +245,7 @@ function AudioTab({ s, save, music }: TabProps & { music: string[] }) {
       )}
       <Toggle on={s.audio.sfx} onChange={(v) => save({ audio: { sfx: v } })} label="Hiệu ứng âm thanh" hint="Tiếng pháo hoa bay lên và nổ, pháo dây tách tách khi có quà, trống múa lân, chuông gió khi mai nở." />
       {s.audio.sfx && <Slider label="Âm lượng hiệu ứng" value={s.audio.sfxVolume} min={0} max={1} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => save({ audio: { sfxVolume: v } })} />}
+      <Slider label="Âm lượng trống" value={s.audio.drumVolume} min={0} max={1} step={0.05} format={(v) => (v === 0 ? 'Tắt' : `${Math.round(v * 100)}%`)} onChange={(v) => save({ audio: { drumVolume: v } })} />
     </>
   );
 }

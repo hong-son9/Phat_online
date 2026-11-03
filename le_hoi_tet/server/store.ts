@@ -31,7 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   idleSeconds: 90,
   shareReminderMinutes: 6,
-  audio: { music: true, musicTrack: 'builtin:xuan', musicVolume: 0.35, sfx: true, sfxVolume: 0.7 },
+  audio: { music: true, musicTrack: 'builtin:xuan', musicVolume: 0.55, sfx: true, sfxVolume: 0.7, drumVolume: 0.3 },
   graphics: { quality: 'high', captions: true, disclaimer: true, hints: true, theme: 'auto', dayFrom: 6 * 60, nightFrom: 18 * 60 },
   effects: { rain: true, bloom: true, lion: true, spotlight: true },
   bannedWords: [],
@@ -85,6 +85,7 @@ export function applySettingsPatch(current: Settings, patch: unknown): Settings 
   next.shareReminderMinutes = clamp(Math.round(next.shareReminderMinutes), 2, 60);
   next.audio.musicVolume = clamp(next.audio.musicVolume, 0, 1);
   next.audio.sfxVolume = clamp(next.audio.sfxVolume, 0, 1);
+  next.audio.drumVolume = clamp(next.audio.drumVolume, 0, 1);
   if (!['low', 'medium', 'high'].includes(next.graphics.quality)) next.graphics.quality = 'high';
   if (!['dusk', 'night', 'auto'].includes(next.graphics.theme)) next.graphics.theme = 'auto';
   next.graphics.dayFrom = clamp(Math.round(next.graphics.dayFrom), 0, 1439);
