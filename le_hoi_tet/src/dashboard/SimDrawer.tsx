@@ -1,13 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { Brush, PartyPopper, Gift, Heart, MessageCircle, Share2, Sparkles, UserPlus, Users, Crown, HandHeart, Zap } from 'lucide-react';
 import type { Guest } from '../../shared/types';
+import { GIFT_TIERS } from '../../shared/types';
 import { api, patchSettings } from '../lib/api';
 import { Drawer, Field, useToast } from './ui';
 
 // Test mode: fake viewers go through exactly the same rules as real TikTok events,
 // so the owner can check the stage, voice and LIVE Studio setup before going live.
 
-export function SimDrawer({ open, onClose, guests }: { open: boolean; onClose: () => void; guests: Guest[] }) {
+export function SimDrawer({ open, onClose, guests, theme }: { open: boolean; onClose: () => void; guests: Guest[]; theme: string }) {
   const toast = useToast();
   const [name, setName] = useState('');
   const [text, setText] = useState('');
@@ -32,6 +33,7 @@ export function SimDrawer({ open, onClose, guests }: { open: boolean; onClose: (
           Tạo người xem giả để xem trước mọi hiệu ứng và giọng đọc. Sự kiện thử được đánh dấu <span className="text-[10px] px-1 rounded bg-sky-500/15 text-sky-300">thử</span> trong bảng Hoạt động.
           <span className="block mt-1 text-amber-200/80">Nếu đang live thật, mọi thứ ở đây sẽ hiện và được đọc trên live.</span>
         </p>
+        <SceneTest theme={theme} />
         <GuestSim guests={guests} name={name} />
         <Field label="Tên người xem (để trống = tên ngẫu nhiên)">
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: Minh Anh 🌸" maxLength={40} />
@@ -41,8 +43,9 @@ export function SimDrawer({ open, onClose, guests }: { open: boolean; onClose: (
           <B icon={<Brush size={17} />} label="Gõ xinchu" sub="Ra bàn ông đồ xin chữ, giơ cao tờ chữ" onClick={() => sim('trigger')} />
           <B icon={<PartyPopper size={17} />} label="Gõ phaohoa" sub="Châm ngòi, pháo hoa nổ trên trời" onClick={() => sim('phao')} />
           <B icon={<HandHeart size={17} />} label="Comment cầu mong" sub="Giọng đọc chúc đúng điều cầu" onClick={() => sim('wish')} />
-          <B icon={<Gift size={17} />} label="Quà nhỏ" sub="Quay cận, pháo dây, mai vàng bay" onClick={() => sim('gift')} />
-          <B icon={<Crown size={17} />} label="Quà lớn" sub="Múa lân, pháo dây, lời chúc dài" onClick={() => sim('bigGift')} />
+          <B icon={<Gift size={17} />} label="🌹 Hoa hồng (1 xu)" sub="Bắn 4 quả pháo hoa, quay cận, mai vàng" onClick={() => sim('gift', { giftName: 'Rose', coins: 1 })} />
+          <B icon={<Gift size={17} />} label={'🎁 Quà ' + GIFT_TIERS.big + '+ xu'} sub="Pháo hoa lớn 5 quả" onClick={() => sim('gift', { giftName: 'Doughnut', coins: Math.max(30, GIFT_TIERS.big) })} />
+          <B icon={<Crown size={17} />} label={'🦁 Quà ' + GIFT_TIERS.lion + '+ xu'} sub="Múa lân + 8 quả pháo hoa" onClick={() => sim('gift', { giftName: 'Corgi', coins: Math.max(299, GIFT_TIERS.lion) })} />
           <B icon={<Gift size={17} />} label="Combo x10" sub="Gộp thành một lời cảm ơn" onClick={() => sim('gift', { count: 10 })} />
           <B icon={<Heart size={17} />} label="+100 tim" sub="Đầy thanh là pháo hoa rực trời" onClick={() => sim('like', { count: 100 })} />
           <B icon={<Sparkles size={17} />} label="Theo dõi" sub="Cảm ơn người theo dõi" onClick={() => sim('follow')} />
@@ -138,6 +141,35 @@ function GuestSim({ guests, name }: { guests: Guest[]; name: string }) {
           )}
         </>
       )}
+    </section>
+  );
+}
+
+// ---------- day / night and the big effects ----------
+
+// Switch the look straight away to check it (this changes the setting; put it back on "Theo giờ" after)
+function SceneTest({ theme }: { theme: string }) {
+  const toast = useToast();
+  const set = (t: string, label: string) => patchSettings({ graphics: { theme: t } }).then(() => toast(label, 'info'));
+  const fx = (name: string, label: string) => api('/api/fx', { fx: name }).then(() => toast(label, 'info'));
+  const opt = (t: string, label: string, msg: string) => (
+    <button onClick={() => set(t, msg)} className={'flex-1 px-2 py-2 rounded-lg text-[13px] transition ' + (theme === t ? 'bg-gold-400 text-ink-950 font-semibold' : 'text-[#c9b8a3] hover:text-[#efe3d3] bg-ink-800')}>
+      {label}
+    </button>
+  );
+  return (
+    <section className="mb-4 p-3.5 rounded-xl border border-ink-600 bg-ink-850">
+      <div className="font-semibold text-sm text-[#efe3d3] mb-2">Xem thử ngày / đêm</div>
+      <div className="flex gap-1.5">
+        {opt('dusk', '☀️ Ngày', 'Chuyển sang Sáng mùng Một')}
+        {opt('night', '🎆 Đêm', 'Chuyển sang Đêm Giao thừa')}
+        {opt('auto', '⏰ Theo giờ', 'Theo đồng hồ của máy')}
+      </div>
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <button className="btn btn-ghost !text-xs" onClick={() => fx('rain', 'Màn pháo hoa tổng kết')}>🎆 Pháo hoa tổng kết</button>
+        <button className="btn btn-ghost !text-xs" onClick={() => fx('lion', 'Lân ra múa')}>🦁 Múa lân</button>
+      </div>
+      <p className="text-[11px] text-[#9c8a77] mt-2">Thử xong nhớ chọn lại <b>⏰ Theo giờ</b> nếu muốn tự đổi ngày đêm khi live.</p>
     </section>
   );
 }

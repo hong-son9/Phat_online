@@ -1,5 +1,5 @@
 import type { FeedItem, FxName, HallSeat, Offer, ActionKind, Settings, Snapshot, Spotlight, Stats, TopEntry, Viewer } from '../shared/types';
-import { FRONT_SEATS, OFFER_MS, OFFER_SLOTS, SEAT_COUNT } from '../shared/types';
+import { FRONT_SEATS, GIFT_TIERS, OFFER_MS, OFFER_SLOTS, SEAT_COUNT } from '../shared/types';
 import { containsBanned, detectWish, hasKeyword, joinNames, maskBanned, setCustomBanned, spokenName } from '../shared/text';
 import * as L from '../shared/lines';
 import { broadcast, hasAudioStage, stageCount } from './hub';
@@ -21,7 +21,7 @@ const WISH_PER_USER_MS = 8 * 60 * 1000;
 const WISH_GLOBAL_MS = 15 * 1000;
 const OFFER_COOLDOWN_MS = 60 * 1000;
 const GIFT_THANKS_COOLDOWN_MS = 30 * 1000;
-const BIG_GIFT_COINS = 99;
+const BIG_GIFT_COINS = GIFT_TIERS.lion;
 
 // TikTok gift names as the Vietnamese voice should say them
 const GIFT_NAMES_VI: Record<string, string> = {
@@ -49,7 +49,7 @@ export class Engine {
   private hall = new Map<number, SeatInfo>();
   private top = new Map<string, TopEntry>();
   private offers: Offer[] = [];
-  private offerQueue: Array<Viewer & { gift: boolean; kind: ActionKind }> = [];
+  private offerQueue: Array<Viewer & { gift: boolean; kind: ActionKind; coins: number }> = [];
   private lastOfferAt = new Map<string, number>();
   private spotlight: Spotlight | null = null;
   private spotQueue: SpotRequest[] = [];
@@ -273,7 +273,7 @@ export class Engine {
     return out.seat;
   }
 
-  requestOffer(u: Viewer, gift: boolean, kind: ActionKind = 'chu') {
+  requestOffer(u: Viewer, gift: boolean, kind: ActionKind = 'chu', coins = 0) {
     const now = Date.now();
     if (this.offers.some((o) => o.viewerId === u.id)) return;
     // gift givers and guests marked "skip the line" go ahead of everyone else waiting
@@ -282,14 +282,14 @@ export class Engine {
     if (queued !== -1) {
       if (priority) {
         const [q] = this.offerQueue.splice(queued, 1);
-        this.offerQueue.unshift({ ...q, gift: true });
+        this.offerQueue.unshift({ ...q, gift: true, coins: Math.max(q.coins, coins) });
         this.touch();
       }
       return;
     }
     if (!gift && now - (this.lastOfferAt.get(u.id) ?? 0) < OFFER_COOLDOWN_MS) return;
     this.lastOfferAt.set(u.id, now);
-    const entry = { ...u, gift: priority, kind };
+    const entry = { ...u, gift: priority, kind, coins };
     if (priority) {
       const i = this.offerQueue.findIndex((q) => !q.gift);
       this.offerQueue.splice(i === -1 ? this.offerQueue.length : i, 0, entry);
@@ -308,7 +308,7 @@ export class Engine {
       while (used.has(slot)) slot++;
       // the calligrapher's word is picked here, so every page shows the same scroll
       const [word, meaning] = q.kind === 'chu' ? L.pick(L.CALLIGRAPHY, this.avoid.word) : ['', ''];
-      const offer: Offer = { id: fid(), viewerId: q.id, name: q.name, avatar: q.avatar, slot, startedAt: Date.now(), gift: q.gift, kind: q.kind, word };
+      const offer: Offer = { id: fid(), viewerId: q.id, name: q.name, avatar: q.avatar, slot, startedAt: Date.now(), gift: q.gift, kind: q.kind, word, coins: q.coins };
       this.offers.push(offer);
       if (q.kind === 'phao') this.stats.fireworks++;
       else {
@@ -439,7 +439,7 @@ export class Engine {
     this.addPoints(u, coins * this.settings.pointsPerCoin, coins);
     this.feed({ type: 'gift', id: fid(), at: Date.now(), user: u, giftName, count, coins, image, sim });
     this.seat(u, true);
-    this.requestOffer(u, true, 'phao'); // a gift giver sets off a big salvo of fireworks
+    this.requestOffer(u, true, 'phao', coins); // a gift giver sets off a salvo, bigger for bigger gifts
     const fx = this.settings.effects;
     if (fx.spotlight) this.requestSpotlight({ viewer: u, giftName, count, coins });
     if (fx.bloom) this.fx('bloom', Math.min(3, 0.6 + Math.log10(1 + coins)));

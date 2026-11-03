@@ -25,10 +25,13 @@ Giữ cửa sổ `CHAY-LIVE.bat` mở suốt buổi live; đóng nó là tắt a
 | Vào xem | Nhân vật áo dài đi từ đầu đường vào chỗ, giọng đọc chúc mừng năm mới |
 | Gõ `xinchu` | Ra bàn ông đồ, chắp tay vái, nhận một tờ chữ đỏ (Phúc, Lộc, Thọ, An, Tâm, Nhẫn, Phát, Hỷ…), quay lại giơ cao cho mọi người xem, rồi cầm chữ về chỗ. Giọng đọc chúc theo đúng ý nghĩa chữ đó |
 | Gõ `phaohoa` (hoặc "chúc mừng năm mới") | Ra bệ pháo, cúi châm ngòi, lùi lại, một loạt pháo hoa bay lên nổ trên mái cổng làng (hoa cúc, liễu vàng, vòng tròn, trái tim), rồi giơ tay reo hò |
-| Tặng quà | Máy quay áp sát, cổng làng rực sáng, pháo dây nổ tách tách, cánh mai vàng bay, pháo hoa; người tặng được bắn pháo to gấp đôi |
-| Quà lớn (từ 99 xu) | **Lân ra múa** cùng **Ông Địa** cầm quạt mo dẫn đường: chạy lên từ đầu đường, lượn vòng, ngẩng đầu, lắc đầu, vái chào người xem 3 lần rồi lui ra. Máy quay bám theo lân. Đầu lân có mắt chớp, tai vẫy, hàm há ngậm theo trống, gương trên trán, râu và lông trắng; thân vải vảy đỏ viền vàng, đuôi bông |
+| Tặng quà (ví dụ hoa hồng) | Ra bệ bắn **4 quả pháo hoa**; máy quay áp sát, cổng làng rực sáng, pháo dây nổ tách tách, hoa mai vàng nở |
+| Quà từ 20 xu | Bắn **5 quả pháo hoa lớn** |
+| Quà từ 99 xu | Bắn **8 quả pháo hoa**, kết bằng trái tim, và **lân ra múa** cùng **Ông Địa** cầm quạt mo dẫn đường: chạy lên từ đầu đường, lượn vòng, ngẩng đầu, lắc đầu, vái chào người xem 3 lần rồi lui ra. Máy quay bám theo lân. Đầu lân có mắt chớp, tai vẫy, hàm há ngậm theo trống, gương trên trán, râu và lông trắng; thân vải vảy đỏ viền vàng, đuôi bông |
 | Thả đủ tim | Pháo hoa bắn liên tục và mưa hoa đào |
 | Comment điều mong ước | Giọng đọc chúc Tết đúng điều đó (thi cử, sức khỏe, tình duyên, gia đình, công việc, tài lộc, về quê, bình an, đang buồn) |
+
+Bên trái sân khấu là bảng **Cách chơi** (thay cho bảng xếp hạng): liệt kê từng món quà, từ khóa và hiệu ứng tương ứng, lần lượt sáng lên từng dòng. Khi pháo hoa nổ hoặc lân đi ngang, người xem gần đó giơ tay reo hò; ban đêm bầu trời lóe sáng theo màu pháo. Lân nhảy bật, đứng cao, tung kim tuyến sau mỗi lần vái.
 
 Lúc nào cũng có: cánh đào rơi nhẹ, đèn lồng đung đưa, cô gái áo dài đánh đu, người ném còn lên vòng (trúng thì tóe sáng), người bán hàng mời khách, ông đồ cặm cụi viết. Thỉnh thoảng có pháo hoa xa trên làng.
 

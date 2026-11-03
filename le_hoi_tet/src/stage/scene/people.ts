@@ -213,6 +213,7 @@ export class Crowd {
     for (const p of this.parts) {
       p.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       p.frustumCulled = false;
+      p.castShadow = p !== this.shadow; // real shadows when the stage turns them on (the blob stays for contact)
       p.count = 0;
       this.group.add(p);
     }

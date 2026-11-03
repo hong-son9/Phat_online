@@ -71,7 +71,8 @@ export type TopEntry = { id: string; name: string; avatar: string; points: numbe
 // what a viewer comes up to do: ask the calligrapher for a word, or set off a firework
 export type ActionKind = 'chu' | 'phao';
 
-export type Offer = { id: string; viewerId: string; name: string; avatar: string; slot: number; startedAt: number; gift: boolean; kind: ActionKind; word: string };
+// coins: what their gift was worth (0 for a keyword), sets the size of their firework salvo
+export type Offer = { id: string; viewerId: string; name: string; avatar: string; slot: number; startedAt: number; gift: boolean; kind: ActionKind; word: string; coins: number };
 
 export type Spotlight = {
   id: string;
@@ -140,6 +141,10 @@ export type FxName = 'bell' | 'gong' | 'chime' | 'bloom' | 'rain' | 'lion' | 'st
 export type FxEvent = { fx: FxName; power?: number };
 
 // Places along the two bridge railings; the first FRONT_SEATS are the ones closest to the camera
+// What a gift sets off (coins in one go): any gift a salvo of fireworks; from `big` a bigger salvo;
+// from `lion` the biggest salvo and the lion dance. The stage shows these on its guide board.
+export const GIFT_TIERS = { big: 20, lion: 99 };
+
 export const SEAT_COUNT = 72;
 export const FRONT_SEATS = 14;
 // Spots on the railing of the pavilion in the middle of the bridge where people let go

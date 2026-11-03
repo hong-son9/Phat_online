@@ -46,6 +46,8 @@ export type SimRequest = {
   text?: string;
   name?: string;
   id?: string;
+  giftName?: string;
+  coins?: number;
   count?: number;
 };
 
@@ -78,7 +80,7 @@ export function simulate(engine: Engine, req: SimRequest) {
       engine.onChat(u(), rnd(['Cầu cho con thi đỗ ạ', 'Mong ba mẹ khỏe mạnh', 'Xin cho công việc suôn sẻ', 'Cầu tình duyên', 'Hôm nay buồn quá']), true);
       break;
     case 'gift': {
-      const [name, coins] = rnd(GIFTS.slice(0, 5));
+      const [name, coins] = req.coins ? [req.giftName || 'Quà', req.coins] : rnd(GIFTS.slice(0, 5));
       engine.onGift(u(), name, req.count ?? 1, coins, '', true);
       break;
     }

@@ -84,10 +84,6 @@ export class Label {
     } else if (d.kind === 'top') {
       const av = avatarEl(d.name, d.avatar, 26);
       this.el.appendChild(av);
-      const badge = document.createElement('span');
-      badge.className = 'lbl-rank';
-      badge.textContent = String(d.rank ?? '');
-      this.el.appendChild(badge);
       const name = document.createElement('span');
       name.className = 'lbl-name';
       name.textContent = d.name;

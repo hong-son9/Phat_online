@@ -26,6 +26,8 @@ export type Festival = {
   crackle: (power: number) => void;
   onCrackle: (pos: THREE.Vector3) => void; // set by the world: a flash at a firecracker
   onConScore: (pos: THREE.Vector3) => void; // the còn ball went through the ring
+  flashSky: (color: THREE.Color, strength: number) => void; // a firework lights up the night sky
+  setShadows: (on: boolean) => void; // real sun shadows (high quality only)
 };
 
 const lathe = (pts: Array<[number, number]>, seg = 20) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
@@ -687,6 +689,8 @@ export function buildFestival(): Festival {
 
   let flare = 0;
   let night = false;
+  let skyFlash = 0;
+  const skyFlashColor = new THREE.Color();
   const crackleFx = { fn: (_p: THREE.Vector3) => {} };
 
   updaters.push((t, dt) => {
@@ -699,9 +703,13 @@ export function buildFestival(): Festival {
     p.needsUpdate = true;
 
     flare = Math.max(0, flare - dt * 0.4);
-    const glowBase = night ? 1.0 : 0.3;
+    // the sky brightens with each burst and fades back (much stronger at night)
+    skyFlash *= Math.exp(-dt * 3.5);
+    skyMat.color.setRGB(1 + skyFlashColor.r * skyFlash, 1 + skyFlashColor.g * skyFlash, 1 + skyFlashColor.b * skyFlash);
+    villageMat.color.copy(skyMat.color);
+    const glowBase = night ? 0.55 : 0.3;
     lanternGlow.opacity = glowBase + flare * 0.4 + Math.sin(t * 2) * 0.04;
-    lanternMat.emissiveIntensity = (night ? 1.5 : 0.45) + flare * 0.35;
+    lanternMat.emissiveIntensity = (night ? 0.85 : 0.45) + flare * 0.25;
     gateLight.intensity = (night ? 10 : 0) + flare * 5;
     streetLights.forEach((l, i) => (l.intensity = night ? 6 + Math.sin(t * 3 + i) * 0.4 : 0));
 
@@ -756,6 +764,29 @@ export function buildFestival(): Festival {
     plaqueMat.needsUpdate = true;
   };
 
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -13;
+  sun.shadow.camera.right = 13;
+  sun.shadow.camera.top = 13;
+  sun.shadow.camera.bottom = -13;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 60;
+  sun.shadow.bias = -0.0006;
+  sun.shadow.normalBias = 0.02;
+  sun.target.position.set(0, 0, -6);
+  group.add(sun.target);
+  group.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || mesh === sky || mesh === village) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const seeThrough = mats.some((m) => m.transparent || m.alphaTest > 0);
+    mesh.castShadow = !seeThrough;
+    mesh.receiveShadow = true;
+  });
+  extras.group.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) o.castShadow = o.receiveShadow = true;
+  });
+
   return {
     group,
     extras,
@@ -780,6 +811,13 @@ export function buildFestival(): Festival {
     setPlaque: (text) => setPlaqueText(text),
     flare: (power) => {
       flare = Math.min(3, flare + power);
+    },
+    flashSky: (color, strength) => {
+      skyFlashColor.copy(color);
+      skyFlash = Math.min(1.6, skyFlash + strength * (night ? 0.45 : 0.06));
+    },
+    setShadows: (on) => {
+      sun.castShadow = on;
     },
     crackle: (power) => {
       crackleUntil = Math.max(crackleUntil, performance.now() / 1000) + 1.2 + power * 1.2;

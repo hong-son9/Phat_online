@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Snapshot, Spotlight, TopEntry, VoiceItem } from '../../shared/types';
+import type { Snapshot, Spotlight, VoiceItem } from '../../shared/types';
+import { GIFT_TIERS } from '../../shared/types';
 import { colorFor } from './scene/labels';
 
 // Everything drawn over the 3D river, laid out on a 540 x 960 canvas (scaled to the window).
@@ -63,31 +64,41 @@ function Hints({ snap }: { snap: Snapshot }) {
   );
 }
 
-function TopBoard({ top }: { top: TopEntry[] }) {
-  const list = top.slice(0, 5);
-  const medals = ['#f6cf63', '#d9dde6', '#e0a271'];
+// What viewers can do, on the left where a leaderboard would be: each gift and keyword and what it
+// sets off on stage. One row at a time lights up.
+function GuideBoard({ snap }: { snap: Snapshot }) {
+  const s = snap.settings;
+  const rows: Array<[string, string, string]> = [
+    ['🌹', 'Tặng hoa hồng', 'Bắn pháo hoa'],
+    ['🎁', `Quà từ ${GIFT_TIERS.big} xu`, 'Pháo hoa lớn'],
+    ...(s.effects.lion ? [['🦁', `Quà từ ${GIFT_TIERS.lion} xu`, 'Múa lân + pháo hoa'] as [string, string, string]] : []),
+    ['🖌️', `Gõ ${s.keywords[0] ?? 'xinchu'}`, 'Xin chữ ông đồ'],
+    ['🎆', `Gõ ${s.fireKeywords[0] ?? 'phaohoa'}`, 'Bắn pháo hoa'],
+    ...(s.effects.rain ? [['❤️', `${snap.likes.goal} tim`, 'Pháo hoa rực trời'] as [string, string, string]] : []),
+  ];
+  const [lit, setLit] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setLit((n) => (n + 1) % rows.length), 2400);
+    return () => clearInterval(t);
+  }, [rows.length]);
   return (
-    <div className="absolute left-[10px] top-[224px] w-[176px] glass rounded-2xl px-2.5 pt-2 pb-2.5">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="font-serif font-bold text-[13px] gold-text tracking-wide">TOP LỘC XUÂN</span>
-        <span className="text-[9px] text-gold-100/60">điểm</span>
+    <div className="absolute left-[10px] top-[224px] w-[196px] glass rounded-2xl px-2 pt-2 pb-2">
+      <div className="font-serif font-bold text-[13px] gold-text tracking-wide text-center mb-1">🧧 CÁCH CHƠI 🧧</div>
+      <div className="flex flex-col gap-0.5">
+        {rows.map(([icon, what, does], i) => (
+          <div
+            key={what}
+            className="flex items-center gap-1.5 rounded-lg px-1.5 py-[3px] transition-all duration-500"
+            style={i === lit % rows.length ? { background: 'linear-gradient(90deg, rgba(242,183,5,0.38), rgba(242,183,5,0.08))', boxShadow: '0 0 12px rgba(255,200,80,0.35)' } : undefined}
+          >
+            <span className="text-[14px] w-5 text-center shrink-0">{icon}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[10.5px] font-bold text-[#fff3dc] truncate leading-tight">{what}</span>
+              <span className="block text-[9.5px] text-gold-200 truncate leading-tight">→ {does}</span>
+            </span>
+          </div>
+        ))}
       </div>
-      {list.length === 0 ? (
-        <p className="text-[10.5px] text-[#e9d8bd]/75 leading-snug py-1">Comment hoặc tặng quà để có tên trên bảng ✨</p>
-      ) : (
-        <div className="flex flex-col gap-1">
-          {list.map((t, i) => (
-            <div key={t.id} className="flex items-center gap-1.5">
-              <span className="w-3.5 text-[10px] font-bold text-center" style={{ color: medals[i] ?? '#cbb89c' }}>
-                {i + 1}
-              </span>
-              <Avatar name={t.name} url={t.avatar} size={20} ring={medals[i] ? `${medals[i]}aa` : undefined} />
-              <span className="flex-1 min-w-0 truncate text-[11px] font-medium text-[#fff3dc]">{t.name}</span>
-              <span className="text-[10.5px] font-bold text-gold-200 tabular-nums">{t.points >= 10000 ? `${(t.points / 1000).toFixed(1)}k` : t.points}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -308,7 +319,7 @@ export function Overlay({ snap, now, hearts, blooms, ticker, theme }: { snap: Sn
       {g.hints && !spot && <Hints snap={snap} />}
       {/* side panels step aside while the camera is on a gift giver */}
       <div className="absolute inset-0" style={{ opacity: spot ? 0 : 1, transform: spot ? 'scale(0.97)' : 'none', transition: 'all .6s ease' }}>
-        <TopBoard top={snap.top} />
+        <GuideBoard snap={snap} />
         <LikeGoal snap={snap} now={now} hearts={hearts} />
         <OfferLine snap={snap} />
         <Ticker items={ticker} now={now} />

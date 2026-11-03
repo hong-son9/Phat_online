@@ -4,7 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import type { Guest, Offer, Quality, Snapshot } from '../../../shared/types';
-import { OFFER_MS, SEAT_COUNT, TOP_CUSHIONS } from '../../../shared/types';
+import { GIFT_TIERS, OFFER_MS, SEAT_COUNT, TOP_CUSHIONS } from '../../../shared/types';
 import { buildFestival, DAIS, FOG_COLORS, PAD, type Festival } from './festival';
 import { Scrolls } from './props';
 import { LionDance } from './lion';
@@ -111,6 +111,7 @@ class Actor {
   private nextIdle: number;
   private idleStart = -1e9;
   private idleKind = 0;
+  cheerUntil = 0; // a short cheer (fireworks overhead, the lion passing)
   scroll: 'none' | 'up' | 'chest' = 'none'; // the calligraphy scroll, if they have it
   lighting = false; // crouched at the fuse
   launchAt = 0; // server time their firework goes up (0 = none)
@@ -205,6 +206,10 @@ class Actor {
     p.x = this.home.x;
     p.z = this.home.z;
     p.heading = angleLerp(p.heading, homeHeading(this.home), dt * 5);
+    if (now < this.cheerUntil) {
+      p.cheer = Math.min(1, p.cheer + dt * 6, (this.cheerUntil - now) / 300);
+      p.y = Math.abs(Math.sin(now * 0.012)) * 0.05;
+    }
     if (now > this.nextIdle) {
       this.idleStart = now;
       this.idleKind = Math.floor(Math.random() * 3);
@@ -502,7 +507,8 @@ export class World {
   constructor(private canvas: HTMLCanvasElement, private labelLayer: HTMLDivElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', alpha: false });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMappingExposure = 1.0;
     this.scene.background = new THREE.Color(0xbcdcf2);
     this.scene.fog = new THREE.Fog(FOG_COLORS.dusk, 30, 90);
@@ -512,6 +518,12 @@ export class World {
     this.fireworks.onLaunch = () => this.onSound('launch', 1);
     this.fireworks.onBurst = (_p, size) => this.onSound('boom', size);
     this.fireworks.onCrackle = () => this.onSound('crackle', 0.6);
+    this.fireworks.onFlash = (color, strength) => {
+      this.festival.flashSky(color, strength);
+      // a third of the crowd looks up and cheers
+      const now = performance.now();
+      for (const a of this.actors.values()) if (!a.offer && Math.random() < 0.33) a.cheerUntil = now + 900 + Math.random() * 900;
+    };
     this.festival.onCrackle = (p) => {
       this.sparks.burst(p, 6, 0.35, 0.35);
       this.onSound('crackle', 1);
@@ -520,7 +532,12 @@ export class World {
       this.sparks.burst(p, 30, 0.7, 1);
       this.onSound('chime', 0.4);
     };
-    this.lion.onStep = () => this.onSound('drum', 1);
+    this.lion.onStep = (big) => this.onSound('drum', big ? 1.6 : 1);
+    this.lion.onConfetti = (p) => {
+      this.goldPetals.spawn(40, p);
+      this.sparks.burst(p, 40, 0.9, 1.2);
+      this.onSound('chime', 0.8);
+    };
 
     const ringMat = new THREE.MeshBasicMaterial({ map: ringTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
     for (let i = 0; i < 16; i++) {
@@ -566,19 +583,23 @@ export class World {
     this.composer = null;
     this.bloom = null;
     if (q !== 'low') {
-      this.composer = new EffectComposer(this.renderer);
+      const target = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, { type: THREE.HalfFloatType, samples: q === 'high' ? 4 : 2 });
+      this.composer = new EffectComposer(this.renderer, target);
       this.composer.addPass(new RenderPass(this.scene, this.camera));
-      this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), this.night ? 0.8 : 0.35, 0.5, this.night ? 0.7 : 0.88);
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), this.night ? 0.6 : 0.3, 0.5, this.night ? 0.8 : 0.9);
       this.composer.addPass(this.bloom);
       this.composer.addPass(new OutputPass());
     }
+    // real sun shadows only at the top setting
+    this.renderer.shadowMap.enabled = q === 'high';
+    this.festival.setShadows(q === 'high');
     this.resize();
   }
 
   private resize = () => {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const dpr = this.quality === 'high' ? Math.min(window.devicePixelRatio, 1.5) : this.quality === 'medium' ? 1 : 0.75;
+    const dpr = this.quality === 'high' ? Math.min(window.devicePixelRatio, 2) : this.quality === 'medium' ? 1 : 0.75;
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
     this.composer?.setPixelRatio(dpr);
@@ -600,8 +621,8 @@ export class World {
     this.renderer.toneMappingExposure = this.night ? 1.1 : 1.0;
     // bloom suits lanterns and fireworks at night; by day it would wash the colours out
     if (this.bloom) {
-      this.bloom.strength = this.night ? 0.8 : 0.35;
-      this.bloom.threshold = this.night ? 0.7 : 0.88;
+      this.bloom.strength = this.night ? 0.6 : 0.3;
+      this.bloom.threshold = this.night ? 0.8 : 0.9;
     }
   }
 
@@ -779,7 +800,8 @@ export class World {
       if (o && o.kind === 'phao' && a.launchAt && serverNow >= a.launchAt && serverNow < a.launchAt + 2000 && !this.launched.has(o.id)) {
         this.launched.add(o.id);
         // a salvo of different shells (five, bigger, for a gift giver)
-        this.fireworks.salvo(new THREE.Vector3(PAD.x, 0.4, PAD.z), o.gift);
+        const tier = !o.gift ? 0 : o.coins >= GIFT_TIERS.lion ? 3 : o.coins >= GIFT_TIERS.big ? 2 : 1;
+        this.fireworks.salvo(new THREE.Vector3(PAD.x, 0.4, PAD.z), tier);
       }
       i++;
     }
@@ -839,8 +861,9 @@ export class World {
     // while the lion dances (and nobody is in the spotlight) the camera follows it at a medium distance
     if (this.lion.active && !(spot && serverNow - spot.startedAt < spot.durationMs - 600)) {
       const h = this.lion.focus(new THREE.Vector3());
-      targetLook = WIDE_LOOK.clone().lerp(h.clone().add(new THREE.Vector3(0, 0.3, -1.5)), 0.8);
-      targetPos = h.clone().add(new THREE.Vector3(Math.sin(t * 0.25) * 1.2, 2.2, 6.2));
+      // keep the lion, Ông Địa and some of the crowd in the frame, even when it stands tall
+      targetLook = WIDE_LOOK.clone().lerp(new THREE.Vector3(h.x * 0.6, 1.2, h.z - 1.5), 0.75);
+      targetPos = new THREE.Vector3(h.x * 0.5 + Math.sin(t * 0.25) * 0.8, 3.4, h.z + 8.2);
     }
     if (spot && serverNow - spot.startedAt < spot.durationMs - 600) {
       const actor = [...this.actors.values()].find((a) => a.viewerId === spot.viewerId);
@@ -864,6 +887,10 @@ export class World {
     this.festival.update(t, dt);
     this.fireworks.update(dt, t);
     this.lion.update(nowP, t);
+    if (this.lion.active && this.frame % 10 === 0) {
+      const h = this.lion.focus(new THREE.Vector3());
+      for (const a of this.actors.values()) if (!a.offer && Math.hypot(a.pose.x - h.x, a.pose.z - h.z) < 2.4) a.cheerUntil = Math.max(a.cheerUntil, nowP + 700);
+    }
     this.petals.update(t, dt);
     this.goldPetals.update(t, dt);
     this.sparks.update(dt);

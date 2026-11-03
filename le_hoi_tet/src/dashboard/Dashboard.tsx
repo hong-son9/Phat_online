@@ -150,7 +150,7 @@ function DashboardInner() {
       </main>
 
       <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} snap={snap} />
-      <SimDrawer open={simOpen} onClose={() => setSimOpen(false)} guests={snap.settings.guests} />
+      <SimDrawer open={simOpen} onClose={() => setSimOpen(false)} guests={snap.settings.guests} theme={snap.settings.graphics.theme} />
       <SetupWizard open={setupOpen} onClose={() => setSetupOpen(false)} snap={snap} />
       <Modal open={keysOpen} onClose={() => setKeysOpen(false)} width={420}>
         <div className="p-6">

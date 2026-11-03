@@ -38,7 +38,10 @@ export class LionDance {
   private start = -1e9;
   private dur = 0;
   private lastBeat = 0;
-  onStep: () => void = () => {}; // a drum beat
+  onStep: (big: boolean) => void = () => {}; // a drum beat (big: a hop landing)
+  onConfetti: (pos: THREE.Vector3) => void = () => {}; // end of a bow: gold confetti from the mouth
+  private lastBow = -1;
+  private lastHop = -1;
 
   constructor() {
     const red = new THREE.MeshStandardMaterial({ color: 0xd4161c, roughness: 0.5 });
@@ -333,16 +336,33 @@ export class LionDance {
     const bounce = Math.abs(beat);
     if (beat > 0.97 && t - this.lastBeat > 0.3) {
       this.lastBeat = t;
-      this.onStep();
+      this.onStep(false);
     }
     const bowing = face !== undefined;
     const bowK = bowing ? ((k - 0.62) / 0.16) * 3 : 0; // three bows
     const bowDip = bowing ? Math.max(0, Math.sin((bowK % 1) * Math.PI)) : 0;
+    const circling = k > 0.25 && k < 0.62;
     const rear = bowing ? 0 : Math.max(0, Math.sin(t * 0.9) - 0.4) * 1.6; // now and then the front dancer rears up
+    // the tall stand: in the middle of the loops, for a couple of seconds
+    const stand = circling ? Math.max(0, Math.sin(((k - 0.25) / 0.37) * Math.PI * 2 - 1.2)) ** 3 : 0;
+    // hops: a short jump every 2.6 s while circling, landing on a big drum beat
+    const hopT = (t % 2.6) / 0.5;
+    const hop = circling && stand < 0.1 && hopT < 1 ? Math.sin(hopT * Math.PI) * 0.45 : 0;
+    const hopN = Math.floor(t / 2.6);
+    if (circling && stand < 0.1 && hopT > 0.95 && hopN !== this.lastHop) {
+      this.lastHop = hopN;
+      this.onStep(true);
+    }
+    // gold confetti as each bow comes back up
+    const bowN = Math.floor(bowK);
+    if (bowing && bowK % 1 > 0.85 && bowN !== this.lastBow) {
+      this.lastBow = bowN;
+      this.onConfetti(this.head.position.clone().add(new THREE.Vector3(0, -0.2, 0)));
+    }
     const shake = Math.sin(t * 13) * Math.max(0, Math.sin(t * 0.7 + 1)) * 0.35; // a quick head shake
     const look = Math.sin(t * 1.7) * 0.45;
 
-    this.head.position.set(p.x, 1.2 + bounce * 0.12 + rear * 0.55 - bowDip * 0.55, p.z);
+    this.head.position.set(p.x, 1.2 + bounce * 0.12 + rear * 0.55 - bowDip * 0.55 + stand * 1.0 + hop, p.z);
     this.head.rotation.set(-rear * 0.35 + bowDip * 0.7 + Math.sin(t * 3.2) * 0.08, heading + look + shake, Math.sin(t * 2.4) * 0.12, 'YXZ');
     this.jaw.rotation.x = 0.05 + Math.max(0, Math.sin(t * 6.5 + 0.6)) * (bowing ? 0.65 : 0.45);
     const blink = (t % 3.1) < 0.14;
@@ -358,7 +378,8 @@ export class LionDance {
       const f = i / (SEG - 1);
       const pt = along(0.25 + f * BODY_LEN);
       // height of the spine: from the neck, over the rear dancer's back, down to the tail
-      const spineY = THREE.MathUtils.lerp(neck.y, 1.0 + Math.abs(Math.sin(t * 6.5 - f * 3)) * 0.06, Math.min(1, f * 2.5)) - Math.max(0, f - 0.75) * 0.9;
+      const ripple = Math.sin(t * 6.5 - f * 7) * 0.05; // a wave runs down the body
+      const spineY = THREE.MathUtils.lerp(neck.y, 1.0 + hop + Math.abs(Math.sin(t * 6.5 - f * 3)) * 0.06, Math.min(1, f * (2.5 - stand * 1.2))) - Math.max(0, f - 0.75) * 0.9 + ripple;
       const center = i === 0 ? neck : new THREE.Vector3(pt.p.x, spineY, pt.p.z);
       const width = 0.42 + Math.sin(f * Math.PI) * 0.08 - Math.max(0, f - 0.8) * 1.0;
       const hem = 0.38 + f * 0.05; // how far the sides hang down
@@ -385,11 +406,14 @@ export class LionDance {
     for (let i = 0; i < SEG; i++) {
       for (const [n, j] of [[0, 0], [1, RAD - 1]] as const) {
         tmp.fromArray(this.clothPos, (i * RAD + j) * 3);
-        this.hemFur.setMatrixAt(i * 2 + n, m.compose(tmp, q, new THREE.Vector3(1, 1.4, 1)));
+        const jig = 1 + Math.sin(t * 13 + i * 1.7 + n * 2) * 0.18;
+        tmp.y += Math.sin(t * 9 + i) * 0.02;
+        this.hemFur.setMatrixAt(i * 2 + n, m.compose(tmp, q, new THREE.Vector3(jig, 1.4 * jig, jig)));
       }
       tmp.fromArray(this.clothPos, (i * RAD + Math.floor(RAD / 2)) * 3);
       tmp.y += 0.03;
-      this.spineFur.setMatrixAt(i, m.compose(tmp, q, new THREE.Vector3(0.8, 0.8, 0.8)));
+      const sj = 0.8 + Math.sin(t * 11 + i * 0.9) * 0.15;
+      this.spineFur.setMatrixAt(i, m.compose(tmp, q, new THREE.Vector3(sj, sj, sj)));
     }
     this.hemFur.instanceMatrix.needsUpdate = true;
     this.spineFur.instanceMatrix.needsUpdate = true;
@@ -398,7 +422,7 @@ export class LionDance {
     this.tail.rotation.set(0.4 + Math.sin(t * 8) * 0.3, along(0.25 + BODY_LEN).h + Math.sin(t * 5) * 0.4, 0);
 
     // ---------- legs: front dancer under the head, rear dancer under the hump ----------
-    const hipY = 0.82 - bowDip * 0.25;
+    const hipY = 0.82 - bowDip * 0.25 + hop;
     this.legs.forEach((leg, i) => {
       const pt = along(i < 2 ? 0.15 : 1.15);
       const side = i % 2 ? 1 : -1;
@@ -407,8 +431,9 @@ export class LionDance {
       const swing = Math.cos(phase) * 0.12;
       const fwd = new THREE.Vector3(-Math.sin(pt.h), 0, -Math.cos(pt.h));
       const right = new THREE.Vector3(Math.cos(pt.h), 0, -Math.sin(pt.h));
-      const hip = pt.p.clone().addScaledVector(right, side * 0.14).setY(i < 2 ? hipY + rear * 0.1 : 0.78);
-      const foot = pt.p.clone().addScaledVector(right, side * 0.16).addScaledVector(fwd, swing).setY(0.07 + lift);
+      const front = i < 2;
+      const hip = pt.p.clone().addScaledVector(right, side * 0.14).setY(front ? hipY + rear * 0.1 + stand * 0.75 : 0.78 + hop - stand * 0.12);
+      const foot = pt.p.clone().addScaledVector(right, side * 0.16).addScaledVector(fwd, front ? swing * (1 - stand) - stand * 0.45 : swing).setY(0.07 + (front ? lift * (1 - stand) + stand * 0.55 : lift) + hop * 0.9);
       // knees bend forward
       const knee = hip.clone().lerp(foot, 0.5).addScaledVector(fwd, 0.14 + lift * 0.4);
       const place = (mesh: THREE.Mesh, a: THREE.Vector3, b: THREE.Vector3) => {

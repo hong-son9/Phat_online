@@ -57,6 +57,7 @@ export class Fireworks {
   onBurst: (pos: THREE.Vector3, size: number) => void = () => {};
   onLaunch: () => void = () => {};
   onCrackle: () => void = () => {};
+  onFlash: (color: THREE.Color, strength: number) => void = () => {}; // the sky lights up with each burst
 
   constructor(n = 6000) {
     this.n = n;
@@ -200,12 +201,19 @@ export class Fireworks {
     this.onLaunch();
   }
 
-  // A viewer's salvo: three shells of different kinds (five, bigger, for a gift giver)
-  salvo(from: THREE.Vector3, gift: boolean) {
+  // A viewer's salvo. tier 0: typed the keyword (3 shells); 1: any gift (4); 2: a bigger gift (5, bigger);
+  // 3: the biggest gifts (8 shells, ending in a heart)
+  salvo(from: THREE.Vector3, tier: 0 | 1 | 2 | 3) {
     // [kind, size, where it bursts (x), how much higher]
-    const plan: Array<[BurstKind, number, number, number]> = gift
-      ? [['chrysanthemum', 2.0, 0, 0.6], ['heart', 1.5, -2.6, -0.4], ['palm', 1.7, 2.6, 0], ['strobe', 1.4, -1.2, 1.2], ['willow', 2.1, 1.3, 1.5]]
-      : [[Math.random() < 0.5 ? 'chrysanthemum' : 'peony', 1.4, 0.8, 0.4], ['crossette', 1.0, -1.8, -0.3], [Math.random() < 0.5 ? 'ring' : 'willow', 1.2, 2.4, 0.8]];
+    type Shot = [BurstKind, number, number, number];
+    const big: Shot[] = [['chrysanthemum', 2.0, 0, 0.6], ['heart', 1.5, -2.6, -0.4], ['palm', 1.7, 2.6, 0], ['strobe', 1.4, -1.2, 1.2], ['willow', 2.1, 1.3, 1.5]];
+    const plans: Shot[][] = [
+      [[Math.random() < 0.5 ? 'chrysanthemum' : 'peony', 1.4, 0.8, 0.4], ['crossette', 1.0, -1.8, -0.3], [Math.random() < 0.5 ? 'ring' : 'willow', 1.2, 2.4, 0.8]],
+      [['chrysanthemum', 1.6, 0, 0.6], ['heart', 1.3, -2.2, 0], ['peony', 1.4, 2.2, 0.4], ['willow', 1.6, 0, 1.4]],
+      big,
+      [...big, ['crossette', 1.5, -2.8, 1.0], ['ring', 1.7, 2.8, 1.3], ['heart', 2.2, 0, 2.0]],
+    ];
+    const plan = plans[tier];
     plan.forEach(([kind, size, x, lift], i) => setTimeout(() => this.launch(from, size, kind, x, lift), i * 600));
   }
 
@@ -222,6 +230,12 @@ export class Fireworks {
     }, 3200);
   }
 
+  // the bright inner core of a round shell, in a contrasting colour
+  private pistil(p: THREE.Vector3, count: number, speed: number) {
+    const c = new THREE.Color(Math.random() < 0.5 ? 0xffffff : 0xffd860);
+    this.sphere(p, Math.round(count * 0.25), speed * 0.42, (d) => this.emit(p, d, c, new THREE.Color(0xff9a3c), 1.3, 1.4, { flags: F_FLICKER, size: 0.8 }));
+  }
+
   burst(p: THREE.Vector3, kind: BurstKind, size: number) {
     const [a, b] = pickPair();
     const ca = new THREE.Color(a);
@@ -229,16 +243,18 @@ export class Fireworks {
     const [a2, b2] = pickPair();
     const ca2 = new THREE.Color(a2);
     const speed = 5.2 * Math.sqrt(size);
-    const count = Math.round(120 * size);
+    const count = Math.round(150 * size);
     const v = new THREE.Vector3();
     let flash = ca;
 
     if (kind === 'peony') {
       // two colours, half and half
       this.sphere(p, count, speed, (d, i) => this.emit(p, d, i % 2 ? ca : ca2, cb, 2.0 + Math.random() * 0.6, 1.1, { flags: Math.random() < 0.25 ? F_FLICKER : 0 }));
+      this.pistil(p, count, speed);
     } else if (kind === 'chrysanthemum') {
       // every star leaves a glowing trail
       this.sphere(p, Math.round(count * 0.8), speed, (d) => this.emit(p, d, ca, cb, 2.2 + Math.random() * 0.5, 1.15, { flags: F_TRAIL, size: 1.1 }));
+      this.pistil(p, count, speed);
     } else if (kind === 'willow') {
       // gold stars that drift and hang for a long time
       flash = GOLD;
@@ -292,6 +308,7 @@ export class Fireworks {
     f.light.color.copy(flash);
     f.v = (this.day ? 14 : 40) * Math.min(2, size);
     this.addSmoke(p, size);
+    this.onFlash(flash, Math.min(2, size));
     this.onBurst(p, size);
   }
 

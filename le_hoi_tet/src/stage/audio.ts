@@ -222,20 +222,30 @@ class StageAudio {
     if (!this.sfxOn || !this.init()) return;
     const ctx = this.ctx!;
     const t = ctx.currentTime;
+    // the whistle: a clear tone sliding up, with a little warble, loud enough to cut through the music
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.type = 'sine';
-    o.frequency.setValueAtTime(700, t);
-    o.frequency.exponentialRampToValueAtTime(2200, t + 0.9);
+    o.frequency.setValueAtTime(900, t);
+    o.frequency.exponentialRampToValueAtTime(2600, t + 0.95);
+    const wob = ctx.createOscillator();
+    const wobGain = ctx.createGain();
+    wob.frequency.value = 22;
+    wobGain.gain.value = 45;
+    wob.connect(wobGain).connect(o.frequency);
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.05, t + 0.1);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+    g.gain.linearRampToValueAtTime(0.2, t + 0.08);
+    g.gain.setValueAtTime(0.2, t + 0.75);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.05);
     o.connect(g).connect(this.sfxBus);
     o.start(t);
-    o.stop(t + 1.05);
-    const f = this.noise(1.0, 1.2, 'bandpass', 1500, 1.2, 0.12);
-    f.frequency.setValueAtTime(900, t);
-    f.frequency.exponentialRampToValueAtTime(3500, t + 0.9);
+    o.stop(t + 1.1);
+    wob.start(t);
+    wob.stop(t + 1.1);
+    // the hiss of the burning tail
+    const f = this.noise(1.0, 1.0, 'bandpass', 1500, 1.0, 0.3);
+    f.frequency.setValueAtTime(800, t);
+    f.frequency.exponentialRampToValueAtTime(3200, t + 0.9);
   }
 
   // The burst: a deep thump, then the crackle of the stars
@@ -275,13 +285,13 @@ class StageAudio {
     o.frequency.setValueAtTime(150, t);
     o.frequency.exponentialRampToValueAtTime(60, t + 0.25);
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.7 * power, t + 0.005);
+    g.gain.linearRampToValueAtTime(0.42 * power, t + 0.005);
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
     o.connect(g).connect(this.sfxBus);
     o.start(t);
     o.stop(t + 0.45);
-    this.noise(0.08, 3, 'lowpass', 600, 0.7, 0.4 * power);
-    if (Math.random() < 0.35) this.noise(0.8, 2.5, 'highpass', 5000, 0.4, 0.12 * power, 0.02);
+    this.noise(0.08, 3, 'lowpass', 600, 0.7, 0.24 * power);
+    if (Math.random() < 0.35) this.noise(0.8, 2.5, 'highpass', 5000, 0.4, 0.08 * power, 0.02);
   }
 
   bloom(power = 1) {
@@ -489,16 +499,16 @@ class StageAudio {
 
       // percussion
       if (kind === 'xuan') {
-        if (inBar === 0) this.beat(at, true, 0.22, bus);
-        if (inBar === 2) this.beat(at, false, 0.12, bus);
+        if (inBar === 0) this.beat(at, true, 0.13, bus);
+        if (inBar === 2) this.beat(at, false, 0.07, bus);
         if (inBar % 2 === 1) this.noiseAt(at, 0.03, 3, 'bandpass', 2600, 4, 0.08, bus); // phách
       } else if (kind === 'hoixuan') {
         // lion-dance drum: tùng tùng cắc tùng, a gong at each phrase, cymbals on the off-beats
-        if (inBar === 0 || inBar === 1 || inBar === 3) this.beat(at, inBar === 0, inBar === 0 ? 0.3 : 0.18, bus);
+        if (inBar === 0 || inBar === 1 || inBar === 3) this.beat(at, inBar === 0, inBar === 0 ? 0.18 : 0.11, bus);
         if (inBar === 2) this.noiseAt(at, 0.035, 3, 'bandpass', 3000, 5, 0.16, bus);
         if (e8 % 16 === 0) this.gongHit(at, 0.09, bus);
         if (inBar % 2 === 1) this.noiseAt(at, 0.4, 3, 'highpass', 6500, 0.5, 0.05, bus);
-      } else if (e8 % 8 === 0) this.beat(at, true, 0.12, bus);
+      } else if (e8 % 8 === 0) this.beat(at, true, 0.07, bus);
     });
   }
 
